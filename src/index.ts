@@ -18,6 +18,7 @@ app.onError((err, c) => {
 });
 
 let isDbReady = false;
+let lastInitError: string | null = null;
 
 // Auto-initialize DB schema & default seeds if tables are not yet present in D1
 async function ensureDbInitialized(db: D1Database) {
@@ -25,124 +26,80 @@ async function ensureDbInitialized(db: D1Database) {
 
   try {
     // 1. Settings Table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS settings (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
-    `);
+    await db.prepare('CREATE TABLE IF NOT EXISTS settings ("key" TEXT PRIMARY KEY, "value" TEXT NOT NULL)').run();
 
     // 2. Services Table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        category TEXT NOT NULL,
-        price REAL NOT NULL,
-        duration_minutes INTEGER DEFAULT 30,
-        is_active INTEGER DEFAULT 1,
-        created_at TEXT DEFAULT (datetime('now'))
-      );
-    `);
+    await db.prepare('CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT NOT NULL, price REAL NOT NULL, duration_minutes INTEGER DEFAULT 30, is_active INTEGER DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
 
     // 3. Appointments Table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS appointments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_name TEXT NOT NULL,
-        customer_phone TEXT NOT NULL,
-        appointment_date TEXT NOT NULL,
-        appointment_time TEXT NOT NULL,
-        total_amount REAL NOT NULL DEFAULT 0,
-        paid_amount REAL NOT NULL DEFAULT 0,
-        status TEXT NOT NULL DEFAULT 'confirmed',
-        payment_status TEXT NOT NULL DEFAULT 'pending',
-        notes TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-      );
-      CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
-      CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
-    `);
+    await db.prepare('CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, appointment_date TEXT NOT NULL, appointment_time TEXT NOT NULL, total_amount REAL NOT NULL DEFAULT 0, paid_amount REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT \'confirmed\', payment_status TEXT NOT NULL DEFAULT \'pending\', notes TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
 
     // 4. Appointment Services Table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS appointment_services (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
-        service_id INTEGER,
-        service_name TEXT NOT NULL,
-        price REAL NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id);
-    `);
+    await db.prepare('CREATE TABLE IF NOT EXISTS appointment_services (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, service_id INTEGER, service_name TEXT NOT NULL, price REAL NOT NULL)').run();
 
     // 5. Payments Table
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS payments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
-        amount REAL NOT NULL,
-        payment_method TEXT NOT NULL,
-        payment_date TEXT DEFAULT (datetime('now')),
-        note TEXT,
-        created_at TEXT DEFAULT (datetime('now'))
-      );
-      CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id);
-    `);
+    await db.prepare('CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, amount REAL NOT NULL, payment_method TEXT NOT NULL, payment_date TEXT DEFAULT CURRENT_TIMESTAMP, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
 
-    // 6. Migrations for existing appointments table
+    // 6. Indexes
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id)').run(); } catch {}
+
+    // 7. Migrations for existing appointments table
     try {
-      await db.exec("ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0;");
+      await db.prepare('ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0').run();
     } catch {}
 
-    // 7. Seed Settings if empty
+    // 8. Seed Settings if empty
     try {
-      const settingCount = await db.prepare("SELECT COUNT(*) as count FROM settings").first<{ count: number }>();
+      const settingCount = await db.prepare('SELECT COUNT(*) as count FROM settings').first<{ count: number }>();
       if (!settingCount || settingCount.count === 0) {
-        await db.exec(`
-          INSERT OR IGNORE INTO settings (key, value) VALUES
-            ('passcode', '4050'),
-            ('parlour_name', 'Vrunda Beauty Parlour'),
-            ('parlour_phone', '+91 9876543210'),
-            ('currency', '₹');
-        `);
+        await db.prepare('INSERT OR IGNORE INTO settings ("key", "value") VALUES (\'passcode\', \'4050\')').run();
+        await db.prepare('INSERT OR IGNORE INTO settings ("key", "value") VALUES (\'parlour_name\', \'Vrunda Beauty Parlour\')').run();
+        await db.prepare('INSERT OR IGNORE INTO settings ("key", "value") VALUES (\'parlour_phone\', \'+91 9876543210\')').run();
+        await db.prepare('INSERT OR IGNORE INTO settings ("key", "value") VALUES (\'currency\', \'₹\')').run();
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to seed settings', e);
     }
 
-    // 8. Seed Services if empty
+    // 9. Seed Services if empty
     try {
-      const serviceCount = await db.prepare("SELECT COUNT(*) as count FROM services WHERE is_active = 1").first<{ count: number }>();
+      const serviceCount = await db.prepare('SELECT COUNT(*) as count FROM services WHERE is_active = 1').first<{ count: number }>();
       if (!serviceCount || serviceCount.count === 0) {
-        await db.exec(`
-          INSERT OR IGNORE INTO services (id, name, category, price, duration_minutes) VALUES
-            (1, 'Eyebrow & Upper Lip Threading', 'Threading', 100, 15),
-            (2, 'Full Face Threading', 'Threading', 250, 25),
-            (3, 'Basic Hair Cut & Styling', 'Hair', 350, 30),
-            (4, 'Layer Hair Cut', 'Hair', 600, 45),
-            (5, 'Hair Spa with Deep Conditioning', 'Hair', 1200, 60),
-            (6, 'Hair Straightening / Keratin', 'Hair', 3500, 120),
-            (7, 'Fruit Cleanup', 'Skin & Facial', 500, 30),
-            (8, 'Gold Glow Facial', 'Skin & Facial', 1500, 60),
-            (9, 'Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75),
-            (10, 'Full Arms + Underarms Waxing', 'Waxing', 400, 30),
-            (11, 'Full Legs Waxing', 'Waxing', 500, 35),
-            (12, 'Rica Waxing Package', 'Waxing', 1200, 60),
-            (13, 'Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50),
-            (14, 'Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60),
-            (15, 'Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90),
-            (16, 'Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180);
-        `);
+        const defaultServices: [string, string, number, number][] = [
+          ['Eyebrow & Upper Lip Threading', 'Threading', 100, 15],
+          ['Full Face Threading', 'Threading', 250, 25],
+          ['Basic Hair Cut & Styling', 'Hair', 350, 30],
+          ['Layer Hair Cut', 'Hair', 600, 45],
+          ['Hair Spa with Deep Conditioning', 'Hair', 1200, 60],
+          ['Hair Straightening / Keratin', 'Hair', 3500, 120],
+          ['Fruit Cleanup', 'Skin & Facial', 500, 30],
+          ['Gold Glow Facial', 'Skin & Facial', 1500, 60],
+          ['Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75],
+          ['Full Arms + Underarms Waxing', 'Waxing', 400, 30],
+          ['Full Legs Waxing', 'Waxing', 500, 35],
+          ['Rica Waxing Package', 'Waxing', 1200, 60],
+          ['Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50],
+          ['Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60],
+          ['Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90],
+          ['Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180]
+        ];
+
+        for (const s of defaultServices) {
+          await db.prepare('INSERT INTO services (name, category, price, duration_minutes) VALUES (?, ?, ?, ?)').bind(s[0], s[1], s[2], s[3]).run();
+        }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to seed services', e);
     }
 
     isDbReady = true;
-  } catch (err) {
+    lastInitError = null;
+  } catch (err: any) {
     console.error('Database initialization error:', err);
+    lastInitError = err?.message || String(err);
   }
 }
 
@@ -158,20 +115,21 @@ app.get('/api/db/status', async (c) => {
   const db = c.env?.DB;
   if (!db) return c.json({ error: 'DB binding is missing from worker environment' }, 500);
 
-  if (c.req.query('init') === '1') {
+  if (c.req.query('init') === '1' || !isDbReady) {
     isDbReady = false;
     await ensureDbInitialized(db);
   }
 
   const tablesRes = await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-  const servicesCount = await db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>().catch(() => null);
-  const settingsCount = await db.prepare("SELECT COUNT(*) as c FROM settings").first<{ c: number }>().catch(() => null);
-  const apptsCount = await db.prepare("SELECT COUNT(*) as c FROM appointments").first<{ c: number }>().catch(() => null);
-  const paymentsCount = await db.prepare("SELECT COUNT(*) as c FROM payments").first<{ c: number }>().catch(() => null);
+  const servicesCount = await db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>().catch((e: any) => ({ c: e.message }));
+  const settingsCount = await db.prepare('SELECT COUNT(*) as c FROM settings').first<{ c: number }>().catch((e: any) => ({ c: e.message }));
+  const apptsCount = await db.prepare("SELECT COUNT(*) as c FROM appointments").first<{ c: number }>().catch((e: any) => ({ c: e.message }));
+  const paymentsCount = await db.prepare("SELECT COUNT(*) as c FROM payments").first<{ c: number }>().catch((e: any) => ({ c: e.message }));
 
   return c.json({
     status: 'ok',
     isDbReady,
+    lastInitError,
     tables: (tablesRes.results || []).map((t: any) => t.name),
     counts: {
       services: servicesCount?.c ?? 'error',
@@ -185,7 +143,7 @@ app.get('/api/db/status', async (c) => {
 // Helper: Get setting value
 async function getSetting(db: D1Database, key: string, defaultValue: string = ''): Promise<string> {
   try {
-    const res = await db.prepare('SELECT value FROM settings WHERE key = ?').bind(key).first<{ value: string }>();
+    const res = await db.prepare('SELECT "value" FROM settings WHERE "key" = ?').bind(key).first<{ value: string }>();
     return res?.value ?? defaultValue;
   } catch {
     return defaultValue;
@@ -699,13 +657,13 @@ app.post('/api/settings', async (c) => {
     if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
     const { parlourName, parlourPhone, passcode } = await c.req.json();
     if (parlourName) {
-      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_name', parlourName).run();
+      await db.prepare('INSERT OR REPLACE INTO settings ("key", "value") VALUES (?, ?)').bind('parlour_name', parlourName).run();
     }
     if (parlourPhone) {
-      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_phone', parlourPhone).run();
+      await db.prepare('INSERT OR REPLACE INTO settings ("key", "value") VALUES (?, ?)').bind('parlour_phone', parlourPhone).run();
     }
     if (passcode) {
-      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('passcode', passcode).run();
+      await db.prepare('INSERT OR REPLACE INTO settings ("key", "value") VALUES (?, ?)').bind('passcode', passcode).run();
     }
     return c.json({ success: true });
   } catch (err: any) {
