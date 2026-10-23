@@ -9,6 +9,63 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/api/*', cors());
 
+// Auto-initialize DB schema & default seeds if tables are not yet present in D1
+async function ensureDbInitialized(db: D1Database) {
+  try {
+    await db.prepare('SELECT 1 FROM appointments LIMIT 1').first();
+  } catch {
+    try {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT NOT NULL, price REAL NOT NULL, duration_minutes INTEGER DEFAULT 30, is_active INTEGER DEFAULT 1, created_at TEXT DEFAULT (datetime('now', 'localtime')));
+        CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, appointment_date TEXT NOT NULL, appointment_time TEXT NOT NULL, total_amount REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'confirmed' CHECK(status IN ('pending', 'confirmed', 'completed', 'cancelled')), payment_status TEXT NOT NULL DEFAULT 'pending' CHECK(payment_status IN ('pending', 'paid_cash', 'paid_upi', 'paid_card')), notes TEXT, created_at TEXT DEFAULT (datetime('now', 'localtime')), updated_at TEXT DEFAULT (datetime('now', 'localtime')));
+        CREATE TABLE IF NOT EXISTS appointment_services (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, service_id INTEGER, service_name TEXT NOT NULL, price REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
+        CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+        CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id);
+
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('passcode', '4050'), ('parlour_name', 'Vrunda Beauty Parlour'), ('parlour_phone', '+91 9876543210'), ('currency', '₹');
+        INSERT OR IGNORE INTO services (id, name, category, price, duration_minutes) VALUES
+          (1, 'Eyebrow & Upper Lip Threading', 'Threading', 100, 15),
+          (2, 'Full Face Threading', 'Threading', 250, 25),
+          (3, 'Basic Hair Cut & Styling', 'Hair', 350, 30),
+          (4, 'Layer Hair Cut', 'Hair', 600, 45),
+          (5, 'Hair Spa with Deep Conditioning', 'Hair', 1200, 60),
+          (6, 'Hair Straightening / Keratin', 'Hair', 3500, 120),
+          (7, 'Fruit Cleanup', 'Skin & Facial', 500, 30),
+          (8, 'Gold Glow Facial', 'Skin & Facial', 1500, 60),
+          (9, 'Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75),
+          (10, 'Full Arms + Underarms Waxing', 'Waxing', 400, 30),
+          (11, 'Full Legs Waxing', 'Waxing', 500, 35),
+          (12, 'Rica Waxing Package', 'Waxing', 1200, 60),
+          (13, 'Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50),
+          (14, 'Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60),
+          (15, 'Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90),
+          (16, 'Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180);
+
+        INSERT OR IGNORE INTO appointments (id, customer_name, customer_phone, appointment_date, appointment_time, total_amount, status, payment_status, notes) VALUES
+          (1, 'Pooja Sharma', '9825123456', date('now', 'localtime'), '11:00', 1600, 'confirmed', 'paid_upi', 'Gold Glow Facial'),
+          (2, 'Ananya Patel', '9978123456', date('now', 'localtime'), '14:30', 950, 'confirmed', 'pending', 'Hair Cut + Threading');
+
+        INSERT OR IGNORE INTO appointment_services (id, appointment_id, service_id, service_name, price) VALUES
+          (1, 1, 8, 'Gold Glow Facial', 1500),
+          (2, 1, 1, 'Eyebrow & Upper Lip Threading', 100),
+          (3, 2, 4, 'Layer Hair Cut', 600),
+          (4, 2, 3, 'Basic Hair Cut & Styling', 350);
+      `);
+    } catch (e) {
+      console.error('Auto DB init failed', e);
+    }
+  }
+}
+
+app.use('/api/*', async (c, next) => {
+  if (c.env?.DB) {
+    await ensureDbInitialized(c.env.DB);
+  }
+  await next();
+});
+
 // Helper: Get setting value
 async function getSetting(db: D1Database, key: string, defaultValue: string = ''): Promise<string> {
   try {
@@ -91,37 +148,57 @@ app.get('/api/dashboard', async (c) => {
 // 3. APPOINTMENTS LIST & FILTERS
 // ─────────────────────────────────────────────
 app.get('/api/appointments', async (c) => {
-  const db = c.env.DB;
-  const filter = c.req.query('filter') || 'all';
-  const search = c.req.query('search') || '';
-  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const db = c.env.DB;
+    const filter = c.req.query('filter') || 'all';
+    const search = c.req.query('search') || '';
+    const today = new Date().toISOString().slice(0, 10);
 
-  let query = 'SELECT * FROM appointments WHERE 1=1';
-  const params: any[] = [];
+    let query = `
+      SELECT 
+        a.id,
+        a.customer_name,
+        a.customer_phone,
+        a.appointment_date,
+        a.appointment_time,
+        a.total_amount,
+        a.status,
+        a.payment_status,
+        a.notes,
+        COALESCE(GROUP_CONCAT(s.service_name, ', '), '') as services_list
+      FROM appointments a
+      LEFT JOIN appointment_services s ON a.id = s.appointment_id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
 
-  if (filter === 'today') {
-    query += ' AND appointment_date = ?';
-    params.push(today);
-  } else if (filter === 'upcoming') {
-    query += ' AND appointment_date >= ? AND status != "completed" AND status != "cancelled"';
-    params.push(today);
-  } else if (filter === 'completed') {
-    query += ' AND status = "completed"';
-  } else if (filter === 'pending_payment') {
-    query += ' AND payment_status = "pending" AND status != "cancelled"';
+    if (filter === 'today') {
+      query += ' AND a.appointment_date = ?';
+      params.push(today);
+    } else if (filter === 'upcoming') {
+      query += ' AND a.appointment_date >= ? AND a.status != "completed" AND a.status != "cancelled"';
+      params.push(today);
+    } else if (filter === 'completed') {
+      query += ' AND a.status = "completed"';
+    } else if (filter === 'pending_payment') {
+      query += ' AND a.payment_status = "pending" AND a.status != "cancelled"';
+    }
+
+    if (search) {
+      query += ' AND (a.customer_name LIKE ? OR a.customer_phone LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    query += ' GROUP BY a.id ORDER BY a.appointment_date DESC, a.appointment_time DESC LIMIT 100';
+
+    const stmt = db.prepare(query);
+    const { results } = await stmt.bind(...params).all();
+
+    return c.json(results || []);
+  } catch (err: any) {
+    console.error('Failed to fetch appointments', err);
+    return c.json([]);
   }
-
-  if (search) {
-    query += ' AND (customer_name LIKE ? OR customer_phone LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`);
-  }
-
-  query += ' ORDER BY appointment_date DESC, appointment_time DESC LIMIT 100';
-
-  const stmt = db.prepare(query);
-  const { results } = await stmt.bind(...params).all();
-
-  return c.json(results || []);
 });
 
 // ─────────────────────────────────────────────
