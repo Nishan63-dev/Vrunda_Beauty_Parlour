@@ -1,0 +1,23 @@
+{
+  "name": "beauty-parlour-manager",
+  "version": "1.0.0",
+  "description": "Serverless Beauty Parlour Order & Appointment Manager on Cloudflare Workers & D1",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute beauty-parlour-db --local --file=./schema.sql",
+    "db:seed:local": "wrangler d1 execute beauty-parlour-db --local --file=./seed.sql",
+    "db:init:remote": "wrangler d1 execute beauty-parlour-db --remote --file=./schema.sql",
+    "db:seed:remote": "wrangler d1 execute beauty-parlour-db --remote --file=./seed.sql"
+  },
+  "dependencies": {
+    "hono": "^4.7.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.114.0"
+  }
+}
