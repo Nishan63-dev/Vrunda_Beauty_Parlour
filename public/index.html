@@ -18,6 +18,15 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
+    * { box-sizing: border-box; }
+    html, body {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
+      width: 100% !important;
+      position: relative;
+      touch-action: pan-y;
+      -webkit-font-smoothing: antialiased;
+    }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #faf5f6; -webkit-tap-highlight-color: transparent; }
     .serif { font-family: 'Playfair Display', serif; }
     .rose-gradient { background: linear-gradient(135deg, #e11d48 0%, #be123c 50%, #881337 100%); }
@@ -30,14 +39,14 @@
     }
     /* Safe area padding for iPhones with home indicator */
     .safe-area-pb {
-      padding-bottom: env(safe-area-inset-bottom, 12px);
+      padding-bottom: max(env(safe-area-inset-bottom, 12px), 12px);
     }
     /* Hide ugly scrollbars on mobile while keeping smooth swipe */
     .no-scrollbar::-webkit-scrollbar { display: none !important; }
     .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; -webkit-overflow-scrolling: touch; }
   </style>
 </head>
-<body class="text-slate-800 antialiased min-h-screen pb-28 md:pb-8">
+<body class="text-slate-800 antialiased min-h-screen pb-28 md:pb-8 w-full max-w-full overflow-x-hidden">
 
   <!-- PIN LOCK SCREEN -->
   <div id="pinScreen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/80 backdrop-blur-md">
@@ -80,36 +89,36 @@
   </div>
 
   <!-- MAIN APP CONTAINER -->
-  <div id="appScreen" class="hidden min-h-screen">
+  <div id="appScreen" class="hidden min-h-screen w-full max-w-full overflow-x-hidden">
     
     <!-- TOP HEADER -->
-    <header class="sticky top-0 z-30 glass border-b border-rose-100/60 px-4 py-3.5 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl rose-gradient flex items-center justify-center text-white text-lg shadow-md shadow-rose-500/20">
+    <header class="sticky top-0 z-30 glass border-b border-rose-100/60 px-3.5 sm:px-4 py-3 flex items-center justify-between w-full max-w-full">
+      <div class="flex items-center space-x-2.5 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl rose-gradient flex items-center justify-center text-white text-base sm:text-lg shadow-md shadow-rose-500/20 shrink-0">
           <i class="fa-solid fa-wand-magic-sparkles"></i>
         </div>
-        <div>
-          <h1 class="font-bold text-slate-900 serif text-lg leading-tight" id="headerParlourName">Vrunda Beauty Parlour</h1>
-          <p class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Cloudflare D1 Active
+        <div class="min-w-0 truncate">
+          <h1 class="font-bold text-slate-900 serif text-base sm:text-lg leading-tight truncate" id="headerParlourName">Vrunda Beauty Parlour</h1>
+          <p class="text-[10px] sm:text-[11px] font-semibold text-rose-600 uppercase tracking-wider flex items-center gap-1.5 truncate">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span> Cloudflare D1 Active
           </p>
         </div>
       </div>
-      <div class="flex items-center space-x-2">
+      <div class="flex items-center space-x-2 shrink-0">
         <button onclick="switchTab('reports')" class="hidden md:flex bg-white border border-rose-200 text-rose-700 text-xs font-semibold py-2 px-3 rounded-xl shadow-sm hover:bg-rose-50 transition items-center gap-1.5">
           <i class="fa-solid fa-file-pdf text-rose-600"></i> Reports & PDF
         </button>
         <button onclick="openBookingModal()" class="hidden md:flex rose-gradient text-white text-xs font-semibold py-2 px-3.5 rounded-xl shadow-md shadow-rose-500/20 items-center gap-1.5 hover:opacity-95 transition">
           <i class="fa-solid fa-plus text-[11px]"></i> New Order
         </button>
-        <button onclick="handleLogout()" title="Lock Screen" class="w-9 h-9 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center transition active:scale-95">
+        <button onclick="handleLogout()" title="Lock Screen" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center transition active:scale-95 shrink-0">
           <i class="fa-solid fa-lock text-xs"></i>
         </button>
       </div>
     </header>
 
     <!-- CONTENT WRAPPER -->
-    <main class="max-w-5xl mx-auto p-3.5 md:p-4 space-y-4 md:space-y-6">
+    <main class="max-w-5xl mx-auto p-3 sm:p-4 space-y-4 md:space-y-6 w-full min-w-0 overflow-x-hidden">
 
       <!-- NAVIGATION TABS (DESKTOP/TABLET ONLY - MOBILE USES FIXED BOTTOM NAV) -->
       <div class="hidden md:flex bg-rose-100/60 p-1 rounded-2xl gap-1 text-xs font-semibold">
@@ -192,27 +201,34 @@
       <!-- TAB 2: APPOINTMENTS / ORDERS -->
       <section id="tab-appointments" class="hidden space-y-4">
         <!-- SEARCH & FILTER BAR -->
-        <div class="bg-white p-3 md:p-3.5 rounded-2xl border border-rose-100 shadow-sm space-y-2.5">
-          <div class="relative">
+        <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-rose-100 shadow-sm space-y-2.5 w-full min-w-0">
+          <div class="relative w-full">
             <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
             <input type="text" id="orderSearch" placeholder="Search customer name or phone..."
               class="w-full text-xs pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400"
               oninput="loadAppointments()">
           </div>
-          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-xs py-0.5">
-            <button onclick="setOrderFilter('all')" id="filter-all" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-rose-600 text-white shrink-0 active:scale-95 transition">All</button>
-            <button onclick="setOrderFilter('today')" id="filter-today" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Today</button>
-            <button onclick="setOrderFilter('upcoming')" id="filter-upcoming" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Upcoming</button>
-            <button onclick="setOrderFilter('partial')" id="filter-partial" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Partial / EMI</button>
-            <button onclick="setOrderFilter('unpaid')" id="filter-unpaid" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
-            <button onclick="setOrderFilter('paid')" id="filter-paid" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Paid</button>
-            <button onclick="setOrderFilter('completed')" id="filter-completed" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Completed</button>
+          <div class="w-full min-w-0 overflow-x-auto no-scrollbar py-0.5">
+            <div class="flex items-center gap-1.5 whitespace-nowrap min-w-max">
+              <button onclick="setOrderFilter('all')" id="filter-all" class="order-filter-btn px-3 py-1.5 rounded-full font-bold text-xs bg-rose-600 text-white shrink-0 active:scale-95 transition shadow-sm">All</button>
+              <button onclick="setOrderFilter('today')" id="filter-today" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Today</button>
+              <button onclick="setOrderFilter('upcoming')" id="filter-upcoming" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Upcoming</button>
+              <button onclick="setOrderFilter('partial')" id="filter-partial" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Partial / EMI</button>
+              <button onclick="setOrderFilter('unpaid')" id="filter-unpaid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
+              <button onclick="setOrderFilter('paid')" id="filter-paid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Paid</button>
+              <button onclick="setOrderFilter('completed')" id="filter-completed" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Completed</button>
+            </div>
           </div>
         </div>
 
         <!-- ORDERS LIST -->
-        <div id="appointmentsList" class="space-y-3">
+        <div id="appointmentsList" class="space-y-3 w-full min-w-0">
           <!-- Dynamic Orders -->
+        </div>
+
+        <!-- PAGINATION CONTROLS -->
+        <div id="appointmentsPagination" class="w-full min-w-0 hidden">
+          <!-- Dynamic Pagination -->
         </div>
       </section>
 
@@ -355,7 +371,7 @@
               <span class="text-xs text-slate-400">Exported in PDF report</span>
             </div>
             <div class="overflow-x-auto no-scrollbar">
-              <table class="w-full text-left border-collapse">
+              <table class="w-full min-w-[680px] text-left border-collapse">
                 <thead>
                   <tr class="bg-rose-50/60 text-[11px] font-bold text-slate-600 uppercase border-b border-rose-100">
                     <th class="py-3 px-3">#</th>
@@ -425,32 +441,32 @@
     </main>
 
     <!-- MOBILE BOTTOM NAVIGATION BAR (FIXED FOR SMARTPHONE DAY-TO-DAY USE) -->
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 py-1.5 flex items-center justify-around safe-area-pb">
-      <button onclick="switchTab('dashboard')" id="mobNav-dashboard" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-rose-600 font-bold transition">
-        <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
-        <span class="text-[10px]">Home</span>
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-1 py-1 flex items-center justify-around safe-area-pb w-full max-w-full">
+      <button onclick="switchTab('dashboard')" id="mobNav-dashboard" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-rose-600 font-bold transition active:scale-90">
+        <i class="fa-solid fa-chart-pie text-base mb-0.5"></i>
+        <span class="text-[9px] leading-tight">Home</span>
       </button>
-      <button onclick="switchTab('appointments')" id="mobNav-appointments" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
-        <i class="fa-solid fa-calendar-check text-lg mb-0.5"></i>
-        <span class="text-[10px]">Orders</span>
+      <button onclick="switchTab('appointments')" id="mobNav-appointments" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition active:scale-90">
+        <i class="fa-solid fa-calendar-check text-base mb-0.5"></i>
+        <span class="text-[9px] leading-tight">Orders</span>
       </button>
-      <button onclick="openBookingModal()" class="flex-1 flex flex-col items-center justify-center -mt-6">
-        <div class="w-12 h-12 rounded-full rose-gradient text-white flex items-center justify-center text-xl shadow-lg shadow-rose-600/40 active:scale-95 transition">
+      <button onclick="openBookingModal()" class="flex-1 flex flex-col items-center justify-center -mt-5 active:scale-90 transition">
+        <div class="w-11 h-11 rounded-full rose-gradient text-white flex items-center justify-center text-lg shadow-lg shadow-rose-600/40">
           <i class="fa-solid fa-plus"></i>
         </div>
-        <span class="text-[10px] font-bold text-rose-700 mt-0.5">Book</span>
+        <span class="text-[9px] font-bold text-rose-700 mt-0.5">Book</span>
       </button>
-      <button onclick="switchTab('reports')" id="mobNav-reports" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
-        <i class="fa-solid fa-file-pdf text-lg mb-0.5"></i>
-        <span class="text-[10px]">Reports</span>
+      <button onclick="switchTab('reports')" id="mobNav-reports" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition active:scale-90">
+        <i class="fa-solid fa-file-pdf text-base mb-0.5"></i>
+        <span class="text-[9px] leading-tight">Reports</span>
       </button>
-      <button onclick="switchTab('services')" id="mobNav-services" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
-        <i class="fa-solid fa-scissors text-lg mb-0.5"></i>
-        <span class="text-[10px]">Services</span>
+      <button onclick="switchTab('services')" id="mobNav-services" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition active:scale-90">
+        <i class="fa-solid fa-scissors text-base mb-0.5"></i>
+        <span class="text-[9px] leading-tight">Services</span>
       </button>
-      <button onclick="switchTab('settings')" id="mobNav-settings" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
-        <i class="fa-solid fa-sliders text-lg mb-0.5"></i>
-        <span class="text-[10px]">Settings</span>
+      <button onclick="switchTab('settings')" id="mobNav-settings" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition active:scale-90">
+        <i class="fa-solid fa-sliders text-base mb-0.5"></i>
+        <span class="text-[9px] leading-tight">Settings</span>
       </button>
     </nav>
 
@@ -458,7 +474,7 @@
 
   <!-- MODAL: NEW APPOINTMENT -->
   <div id="bookingModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm hidden">
-    <div class="glass w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 md:p-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar">
+    <div class="glass w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 md:p-6 pb-8 sm:pb-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <h3 class="text-lg font-bold text-slate-900 serif"><i class="fa-solid fa-sparkles text-rose-600 mr-1.5"></i> New Appointment / Order</h3>
         <button onclick="closeBookingModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -555,7 +571,7 @@
 
   <!-- MODAL: EMI / ADVANCE INSTALLMENT PAYMENTS -->
   <div id="paymentModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm hidden">
-    <div class="glass w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 md:p-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar space-y-4">
+    <div class="glass w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 md:p-6 pb-8 sm:pb-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
         <div>
           <h3 class="text-base font-bold text-slate-900 serif flex items-center gap-2">
@@ -640,7 +656,7 @@
 
   <!-- MODAL: ADD SERVICE -->
   <div id="serviceModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm hidden">
-    <div class="glass w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 md:p-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar">
+    <div class="glass w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 md:p-6 pb-8 sm:pb-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
         <h3 class="text-base font-bold text-slate-900 serif">Add New Service</h3>
         <button onclick="closeServiceModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
@@ -819,34 +835,33 @@
     function renderTodaySchedule(list) {
       const container = document.getElementById('todayScheduleList');
       if (!Array.isArray(list) || list.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">No appointments scheduled for today yet. Tap <strong>+ Book</strong> to add one!</p>';
+        container.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">No appointments scheduled for today yet. Tap <strong>+ Quick Book</strong> to add one!</p>';
         return;
       }
       container.innerHTML = list.map(a => {
         const waText = encodeURIComponent('Hello ' + a.customer_name + '! Your appointment at ' + parlourTitle + ' is scheduled for today at ' + a.appointment_time + '. See you soon! 💕');
         return `
-        <div class="py-3.5 flex items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <span class="text-xs font-mono font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">
+        <div class="py-3 flex items-center justify-between gap-2 border-b border-slate-100 last:border-b-0 w-full min-w-0">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="text-[11px] font-mono font-bold text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100 shrink-0">
               ${a.appointment_time}
             </span>
-            <div>
-              <p class="font-bold text-slate-900 text-sm leading-tight">${a.customer_name}</p>
-              <p class="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                <span><i class="fa-solid fa-phone text-[10px] text-slate-400 mr-1"></i>${a.customer_phone}</span>
+            <div class="min-w-0 flex-1 truncate">
+              <p class="font-bold text-slate-900 text-xs sm:text-sm leading-tight truncate">${a.customer_name}</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+                <span>${a.customer_phone}</span>
                 <span>•</span>
-                <span class="font-semibold text-slate-700">₹${Number(a.total_amount).toLocaleString('en-IN')}</span>
+                <span class="font-bold text-slate-800">₹${Number(a.total_amount).toLocaleString('en-IN')}</span>
               </p>
             </div>
           </div>
-          <div class="flex items-center gap-1.5">
+          <div class="flex items-center gap-1.5 shrink-0">
             ${renderStatusBadge(a.status)}
-            <a href="tel:${a.customer_phone}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs" title="Call Customer">
-              <i class="fa-solid fa-phone"></i>
+            <a href="tel:${a.customer_phone}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs active:scale-95 transition" title="Call">
+              <i class="fa-solid fa-phone text-[10px]"></i>
             </a>
-            <a href="https://wa.me/91${a.customer_phone}?text=${waText}"
-              target="_blank" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-sm" title="WhatsApp Reminder">
-              <i class="fa-brands fa-whatsapp"></i>
+            <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-xs active:scale-95 transition" title="WhatsApp">
+              <i class="fa-brands fa-whatsapp text-xs"></i>
             </a>
           </div>
         </div>
@@ -854,32 +869,49 @@
       }).join('');
     }
 
+    let allAppointments = [];
+    let currentOrdersPage = 1;
+    const ORDERS_PAGE_SIZE = 8; // 8 orders per page for clean mobile scrolling
+
     async function loadAppointments() {
       const search = document.getElementById('orderSearch').value.trim();
       const res = await fetch('/api/appointments?filter=' + currentFilter + '&search=' + encodeURIComponent(search));
-      const list = await res.json();
-      renderAppointments(list);
+      allAppointments = await res.json();
+      currentOrdersPage = 1;
+      renderPaginatedAppointments();
+    }
+
+    function changeOrdersPage(newPage) {
+      const totalPages = Math.ceil(allAppointments.length / ORDERS_PAGE_SIZE) || 1;
+      if (newPage < 1 || newPage > totalPages) return;
+      currentOrdersPage = newPage;
+      renderPaginatedAppointments();
+      const target = document.getElementById('tab-appointments');
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function setOrderFilter(filter) {
       currentFilter = filter;
       document.querySelectorAll('.order-filter-btn').forEach(btn => {
-        btn.classList.remove('bg-rose-600', 'text-white');
-        btn.classList.add('bg-slate-100', 'text-slate-600');
+        btn.classList.remove('bg-rose-600', 'text-white', 'font-bold');
+        btn.classList.add('bg-slate-100', 'text-slate-600', 'font-semibold');
       });
       const active = document.getElementById('filter-' + filter);
       if (active) {
-        active.classList.add('bg-rose-600', 'text-white');
-        active.classList.remove('bg-slate-100', 'text-slate-600');
+        active.classList.add('bg-rose-600', 'text-white', 'font-bold');
+        active.classList.remove('bg-slate-100', 'text-slate-600', 'font-semibold');
       }
       loadAppointments();
     }
 
-    function renderAppointments(list) {
+    function renderPaginatedAppointments() {
       const container = document.getElementById('appointmentsList');
-      if (!Array.isArray(list) || list.length === 0) {
+      const paginationContainer = document.getElementById('appointmentsPagination');
+
+      if (!Array.isArray(allAppointments) || allAppointments.length === 0) {
+        if (paginationContainer) paginationContainer.classList.add('hidden');
         container.innerHTML = `
-          <div class="bg-white p-7 rounded-3xl border border-rose-100 shadow-sm text-center space-y-3">
+          <div class="bg-white p-7 rounded-3xl border border-rose-100 shadow-sm text-center space-y-3 w-full">
             <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl mx-auto shadow-sm">
               <i class="fa-solid fa-calendar-check"></i>
             </div>
@@ -893,77 +925,130 @@
         return;
       }
 
-      container.innerHTML = list.map(a => {
-        const total = Number(a.total_amount) || 0;
+      const total = allAppointments.length;
+      const totalPages = Math.ceil(total / ORDERS_PAGE_SIZE) || 1;
+      if (currentOrdersPage > totalPages) currentOrdersPage = totalPages;
+
+      const startIndex = (currentOrdersPage - 1) * ORDERS_PAGE_SIZE;
+      const endIndex = Math.min(startIndex + ORDERS_PAGE_SIZE, total);
+      const pageList = allAppointments.slice(startIndex, endIndex);
+
+      container.innerHTML = pageList.map(a => {
+        const totalAmt = Number(a.total_amount) || 0;
         const paid = Number(a.paid_amount) || 0;
-        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, total - paid);
+        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, totalAmt - paid);
 
         let paymentBadgeHtml = '';
-        if (due <= 0 && total > 0) {
-          paymentBadgeHtml = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-600"></i> Paid ₹${paid.toLocaleString('en-IN')}</span>`;
+        if (due <= 0 && totalAmt > 0) {
+          paymentBadgeHtml = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-check text-emerald-600"></i> Paid ₹${paid.toLocaleString('en-IN')}</span>`;
         } else if (paid > 0) {
-          paymentBadgeHtml = `<span class="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-clock text-amber-600"></i> Adv: ₹${paid.toLocaleString('en-IN')} | Due: ₹${due.toLocaleString('en-IN')}</span>`;
+          paymentBadgeHtml = `<span class="bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-clock text-amber-600"></i> Adv: ₹${paid.toLocaleString('en-IN')} | Due: ₹${due.toLocaleString('en-IN')}</span>`;
         } else {
-          paymentBadgeHtml = `<span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-rose-600"></i> Unpaid (Due: ₹${total.toLocaleString('en-IN')})</span>`;
+          paymentBadgeHtml = `<span class="bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-exclamation text-rose-600"></i> Unpaid</span>`;
         }
 
         let waText = '';
-        if (due <= 0 && total > 0) {
-          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${total.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} is confirmed & fully paid. Thank you! 💕`);
+        if (due <= 0 && totalAmt > 0) {
+          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} is confirmed & fully paid. Thank you! 💕`);
         } else if (paid > 0) {
           waText = encodeURIComponent(`Hello ${a.customer_name}! Thank you for your advance payment of ₹${paid.toLocaleString('en-IN')} at ${parlourTitle}. Your remaining balance is ₹${due.toLocaleString('en-IN')} for your order on ${a.appointment_date} at ${a.appointment_time}. See you soon! 💕`);
         } else {
-          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${total.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} at ${a.appointment_time} is confirmed. See you soon! 💕`);
+          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} at ${a.appointment_time} is confirmed. See you soon! 💕`);
         }
 
         return `
-        <div class="bg-white p-3.5 rounded-2xl border border-rose-100/90 shadow-sm space-y-2.5">
-          <!-- Top Row: Customer Name, Status & Price -->
+        <div class="bg-white rounded-2xl border border-rose-100/90 shadow-sm p-3.5 space-y-2.5 w-full min-w-0">
+          <!-- Top Row: Customer Name & Amount / Status -->
           <div class="flex items-start justify-between gap-2">
-            <div>
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <h4 class="font-bold text-slate-900 text-base leading-tight">${a.customer_name}</h4>
+            <div class="min-w-0 flex-1">
+              <h4 class="font-extrabold text-slate-900 text-sm sm:text-base leading-tight truncate">${a.customer_name}</h4>
+              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                 ${paymentBadgeHtml}
+                ${renderStatusBadge(a.status)}
               </div>
-              <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                <span><i class="fa-regular fa-clock text-rose-500 mr-1 text-[11px]"></i>${a.appointment_date} at ${a.appointment_time}</span>
-                <span>•</span>
-                <span><i class="fa-solid fa-phone text-slate-400 mr-1 text-[10px]"></i>${a.customer_phone}</span>
-              </p>
             </div>
             <div class="text-right shrink-0">
-              <span class="text-base font-extrabold text-slate-900">₹${total.toLocaleString('en-IN')}</span>
-              ${(paid > 0 && due > 0) ? `<p class="text-[10px] font-bold text-amber-600 leading-none mt-0.5">Due: ₹${due.toLocaleString('en-IN')}</p>` : ''}
-              <div class="mt-0.5">${renderStatusBadge(a.status)}</div>
+              <span class="text-base sm:text-lg font-extrabold text-slate-900">₹${totalAmt.toLocaleString('en-IN')}</span>
+              ${(paid > 0 && due > 0) ? `<p class="text-[10px] sm:text-[11px] font-bold text-amber-600 leading-tight">Due: ₹${due.toLocaleString('en-IN')}</p>` : ''}
             </div>
           </div>
 
-          <!-- Middle: Services list or Notes -->
+          <!-- Meta Info: Clean Date/Time & Phone Badges -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
+              <i class="fa-regular fa-clock text-rose-500 text-xs shrink-0"></i>
+              <span class="truncate font-medium text-[11px]">${a.appointment_date} <strong class="font-bold text-slate-900">${a.appointment_time}</strong></span>
+            </div>
+            <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
+              <i class="fa-solid fa-phone text-slate-400 text-[10px] shrink-0"></i>
+              <span class="truncate font-mono font-semibold text-[11px] text-slate-800">${a.customer_phone}</span>
+            </div>
+          </div>
+
+          <!-- Services / Notes (if any) -->
           ${(a.services_list || a.notes) ? `
-          <div class="bg-rose-50/60 p-2 rounded-xl text-xs text-slate-700 flex items-center justify-between">
-            <div class="truncate">
-              <span class="font-semibold text-rose-800"><i class="fa-solid fa-sparkles text-[10px] mr-1"></i>Services:</span> ${a.services_list || a.notes}
+          <div class="bg-rose-50/60 border border-rose-100/80 p-2.5 rounded-xl text-xs text-slate-700 flex items-start gap-1.5">
+            <i class="fa-solid fa-sparkles text-rose-600 text-[10px] mt-0.5 shrink-0"></i>
+            <div class="min-w-0 flex-1 text-[11px] leading-tight truncate">
+              <span class="font-bold text-rose-900">Services:</span> ${a.services_list || a.notes}
             </div>
           </div>` : ''}
 
-          <!-- Bottom: 1-Tap Action Buttons Bar -->
-          <div class="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-slate-100 text-xs">
-            <a href="tel:${a.customer_phone}" class="py-2 px-1 rounded-xl bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-phone text-xs"></i> Call
+          <!-- 4 Action Buttons -->
+          <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100 text-xs font-bold">
+            <a href="tel:${a.customer_phone}" class="h-9 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-1 active:scale-95 transition">
+              <i class="fa-solid fa-phone text-[11px]"></i>
+              <span class="text-[11px]">Call</span>
             </a>
-            <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="py-2 px-1 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
+            <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="h-9 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1 active:scale-95 transition">
+              <i class="fa-brands fa-whatsapp text-sm"></i>
+              <span class="text-[11px]">Chat</span>
             </a>
-            <button onclick="openPaymentModal(${a.id})" class="py-2 px-1 rounded-xl bg-purple-50 text-purple-700 font-semibold hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-wallet text-xs"></i> Pay/EMI
+            <button onclick="openPaymentModal(${a.id})" class="h-9 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
+              <i class="fa-solid fa-wallet text-[11px]"></i>
+              <span class="text-[11px]">Pay</span>
             </button>
-            <button onclick="updateOrderStatus(${a.id}, 'completed')" class="py-2 px-1 rounded-xl bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-check text-xs"></i> Done
+            <button onclick="updateOrderStatus(${a.id}, 'completed')" class="h-9 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center justify-center gap-1 active:scale-95 transition">
+              <i class="fa-solid fa-check text-[11px]"></i>
+              <span class="text-[11px]">Done</span>
             </button>
           </div>
         </div>
       `;
       }).join('');
+
+      // Render Pagination Controls
+      if (paginationContainer) {
+        if (totalPages <= 1) {
+          paginationContainer.classList.add('hidden');
+        } else {
+          paginationContainer.classList.remove('hidden');
+          paginationContainer.innerHTML = `
+            <div class="bg-white p-3 rounded-2xl border border-rose-100/90 shadow-sm flex items-center justify-between text-xs">
+              <div class="text-slate-500 font-medium text-[11px]">
+                Showing <strong class="text-slate-900">${startIndex + 1}–${endIndex}</strong> of <strong class="text-slate-900">${total}</strong>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="changeOrdersPage(${currentOrdersPage - 1})" ${currentOrdersPage === 1 ? 'disabled class="opacity-40 cursor-not-allowed px-3 py-1.5 rounded-xl bg-slate-100 text-slate-400 font-semibold text-xs"' : 'class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs active:scale-95 transition"'}>
+                  <i class="fa-solid fa-chevron-left text-[10px]"></i> Prev
+                </button>
+                <span class="px-2.5 py-1 rounded-xl bg-rose-50 text-rose-700 font-bold text-xs border border-rose-100/80">
+                  ${currentOrdersPage} / ${totalPages}
+                </span>
+                <button onclick="changeOrdersPage(${currentOrdersPage + 1})" ${currentOrdersPage === totalPages ? 'disabled class="opacity-40 cursor-not-allowed px-3 py-1.5 rounded-xl bg-slate-100 text-slate-400 font-semibold text-xs"' : 'class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-rose-50 hover:text-rose-700 font-semibold text-xs active:scale-95 transition"'}>
+                  Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }
+      }
+    }
+
+    function renderAppointments(list) {
+      allAppointments = Array.isArray(list) ? list : [];
+      currentOrdersPage = 1;
+      renderPaginatedAppointments();
     }
 
     function renderStatusBadge(status) {
@@ -1150,13 +1235,13 @@
         return;
       }
       container.innerHTML = list.map(s => `
-        <div class="bg-white p-3.5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between">
-          <div>
+        <div class="bg-white p-3.5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between min-w-0">
+          <div class="min-w-0 flex-1 mr-2">
             <span class="text-[10px] font-semibold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">${s.category}</span>
-            <h4 class="font-bold text-slate-900 text-sm mt-1">${s.name}</h4>
+            <h4 class="font-bold text-slate-900 text-sm mt-1 truncate">${s.name}</h4>
             <p class="text-xs text-slate-400 mt-0.5"><i class="fa-regular fa-clock text-[10px] mr-1"></i>${s.duration_minutes} mins</p>
           </div>
-          <div class="text-right flex items-center gap-3">
+          <div class="text-right flex items-center gap-3 shrink-0">
             <span class="text-sm font-bold text-slate-900">₹${Number(s.price).toLocaleString('en-IN')}</span>
             <button onclick="deleteService(${s.id})" class="text-slate-300 hover:text-rose-500 p-1.5"><i class="fa-solid fa-trash-can text-xs"></i></button>
           </div>
