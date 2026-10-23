@@ -284,4 +284,89 @@ app.post('/api/settings', async (c) => {
   return c.json({ success: true });
 });
 
+// ─────────────────────────────────────────────
+// 9. REPORTS API (WEEKLY, MONTHLY, YEARLY, CUSTOM)
+// ─────────────────────────────────────────────
+app.get('/api/reports', async (c) => {
+  const db = c.env.DB;
+  const type = c.req.query('type') || 'weekly';
+  let startDate = c.req.query('startDate');
+  let endDate = c.req.query('endDate');
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+
+  if (type === 'weekly') {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    startDate = startDate || d.toISOString().slice(0, 10);
+    endDate = endDate || todayStr;
+  } else if (type === 'monthly') {
+    const month = c.req.query('month') || todayStr.slice(0, 7);
+    startDate = `${month}-01`;
+    const [y, m] = month.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+  } else if (type === 'yearly') {
+    const year = c.req.query('year') || String(now.getFullYear());
+    startDate = `${year}-01-01`;
+    endDate = `${year}-12-31`;
+  } else if (type === 'custom') {
+    startDate = startDate || todayStr;
+    endDate = endDate || todayStr;
+  }
+
+  // Summary aggregation
+  const summary = await db.prepare(`
+    SELECT
+      COUNT(*) as total_orders,
+      COALESCE(SUM(total_amount), 0) as total_expected,
+      COALESCE(SUM(CASE WHEN payment_status != 'pending' THEN total_amount ELSE 0 END), 0) as total_collected,
+      COALESCE(SUM(CASE WHEN payment_status = 'pending' AND status != 'cancelled' THEN total_amount ELSE 0 END), 0) as total_pending,
+      COALESCE(SUM(CASE WHEN payment_status = 'paid_cash' THEN total_amount ELSE 0 END), 0) as paid_cash,
+      COALESCE(SUM(CASE WHEN payment_status = 'paid_upi' THEN total_amount ELSE 0 END), 0) as paid_upi,
+      COALESCE(SUM(CASE WHEN payment_status = 'paid_card' THEN total_amount ELSE 0 END), 0) as paid_card,
+      COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed_count,
+      COALESCE(SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END), 0) as confirmed_count,
+      COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_count,
+      COALESCE(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END), 0) as cancelled_count
+    FROM appointments
+    WHERE appointment_date >= ? AND appointment_date <= ?
+  `).bind(startDate, endDate).first();
+
+  // List of all appointments in the range with service details
+  const { results: appointments } = await db.prepare(`
+    SELECT 
+      a.id,
+      a.customer_name,
+      a.customer_phone,
+      a.appointment_date,
+      a.appointment_time,
+      a.total_amount,
+      a.status,
+      a.payment_status,
+      a.notes,
+      COALESCE(GROUP_CONCAT(s.service_name, ', '), '') as services_list
+    FROM appointments a
+    LEFT JOIN appointment_services s ON a.id = s.appointment_id
+    WHERE a.appointment_date >= ? AND a.appointment_date <= ?
+    GROUP BY a.id
+    ORDER BY a.appointment_date ASC, a.appointment_time ASC
+  `).bind(startDate, endDate).all();
+
+  const parlourName = await getSetting(db, 'parlour_name', 'Vrunda Beauty Parlour');
+  const parlourPhone = await getSetting(db, 'parlour_phone', '+91 9876543210');
+  const currency = await getSetting(db, 'currency', '₹');
+
+  return c.json({
+    type,
+    startDate,
+    endDate,
+    parlourName,
+    parlourPhone,
+    currency,
+    summary: summary || {},
+    appointments: appointments || []
+  });
+});
+
 export default app;

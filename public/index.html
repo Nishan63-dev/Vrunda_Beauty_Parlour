@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #faf5f6; }
     .serif { font-family: 'Playfair Display', serif; }
@@ -60,6 +62,9 @@
         </div>
       </div>
       <div class="flex items-center space-x-2">
+        <button onclick="switchTab('reports')" class="hidden sm:flex bg-white border border-rose-200 text-rose-700 text-xs font-semibold py-2 px-3 rounded-xl shadow-sm hover:bg-rose-50 transition items-center gap-1.5">
+          <i class="fa-solid fa-file-pdf text-rose-600"></i> Reports & PDF
+        </button>
         <button onclick="openBookingModal()" class="rose-gradient text-white text-xs font-semibold py-2 px-3.5 rounded-xl shadow-md shadow-rose-500/20 flex items-center gap-1.5 hover:opacity-95 transition">
           <i class="fa-solid fa-plus text-[11px]"></i> New Order
         </button>
@@ -73,17 +78,20 @@
     <main class="max-w-5xl mx-auto p-4 space-y-6">
 
       <!-- NAVIGATION TABS -->
-      <div class="flex bg-rose-100/60 p-1 rounded-2xl gap-1 text-xs font-semibold">
-        <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition bg-white text-rose-700 shadow-sm">
+      <div class="flex bg-rose-100/60 p-1 rounded-2xl gap-1 text-xs font-semibold overflow-x-auto">
+        <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition bg-white text-rose-700 shadow-sm whitespace-nowrap">
           <i class="fa-solid fa-chart-pie mr-1"></i> Dashboard
         </button>
-        <button onclick="switchTab('appointments')" id="tabBtn-appointments" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700">
+        <button onclick="switchTab('appointments')" id="tabBtn-appointments" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700 whitespace-nowrap">
           <i class="fa-solid fa-calendar-check mr-1"></i> Orders
         </button>
-        <button onclick="switchTab('services')" id="tabBtn-services" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700">
+        <button onclick="switchTab('reports')" id="tabBtn-reports" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700 whitespace-nowrap">
+          <i class="fa-solid fa-file-pdf mr-1"></i> Reports
+        </button>
+        <button onclick="switchTab('services')" id="tabBtn-services" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700 whitespace-nowrap">
           <i class="fa-solid fa-list-check mr-1"></i> Services
         </button>
-        <button onclick="switchTab('settings')" id="tabBtn-settings" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700">
+        <button onclick="switchTab('settings')" id="tabBtn-settings" class="tab-btn flex-1 py-2.5 rounded-xl text-center transition text-slate-600 hover:text-rose-700 whitespace-nowrap">
           <i class="fa-solid fa-sliders mr-1"></i> Settings
         </button>
       </div>
@@ -169,6 +177,166 @@
         <!-- ORDERS LIST -->
         <div id="appointmentsList" class="space-y-3">
           <!-- Dynamic Orders -->
+        </div>
+      </section>
+
+      <!-- TAB: REPORTS & PDF DOWNLOAD -->
+      <section id="tab-reports" class="hidden space-y-6">
+        
+        <!-- HEADER & REPORT SELECTOR CARD -->
+        <div class="bg-white p-5 md:p-6 rounded-2xl border border-rose-100 shadow-sm space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 serif flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-rose-600 text-lg"></i> Sales & Appointment Reports
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">Download official PDF performance statements (Weekly, Monthly, Yearly, or Custom Date Range)</p>
+            </div>
+            <button onclick="downloadPdfReport()" class="rose-gradient text-white text-xs font-semibold py-2.5 px-4 rounded-xl shadow-md shadow-rose-500/20 hover:opacity-95 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-file-arrow-down"></i> Download PDF Report
+            </button>
+          </div>
+
+          <!-- REPORT PERIOD SELECTOR -->
+          <div class="space-y-3">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Select Report Period</label>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs font-semibold">
+              <button type="button" onclick="setReportType('weekly')" id="repBtn-weekly" class="py-2.5 px-3 rounded-xl border border-rose-200 transition text-center bg-rose-600 text-white shadow-sm">
+                <i class="fa-solid fa-calendar-week mr-1.5"></i> Weekly (7 Days)
+              </button>
+              <button type="button" onclick="setReportType('monthly')" id="repBtn-monthly" class="py-2.5 px-3 rounded-xl border border-slate-200 transition text-center bg-slate-50 text-slate-700 hover:bg-rose-50">
+                <i class="fa-solid fa-calendar mr-1.5"></i> Monthly
+              </button>
+              <button type="button" onclick="setReportType('yearly')" id="repBtn-yearly" class="py-2.5 px-3 rounded-xl border border-slate-200 transition text-center bg-slate-50 text-slate-700 hover:bg-rose-50">
+                <i class="fa-solid fa-calendar-days mr-1.5"></i> Yearly
+              </button>
+              <button type="button" onclick="setReportType('custom')" id="repBtn-custom" class="py-2.5 px-3 rounded-xl border border-slate-200 transition text-center bg-slate-50 text-slate-700 hover:bg-rose-50">
+                <i class="fa-solid fa-sliders mr-1.5"></i> Custom Range
+              </button>
+            </div>
+          </div>
+
+          <!-- DYNAMIC FILTER CONTROLS -->
+          <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <!-- Weekly info -->
+            <div id="repInput-weekly" class="flex items-center gap-2 text-slate-600 font-medium">
+              <i class="fa-regular fa-clock text-rose-600"></i>
+              <span>Generating report for the <strong>past 7 days</strong> (up to today).</span>
+            </div>
+
+            <!-- Monthly picker -->
+            <div id="repInput-monthly" class="hidden flex items-center gap-3">
+              <span class="font-semibold text-slate-700">Select Month:</span>
+              <input type="month" id="repMonthInput" onchange="loadReportData()" class="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-rose-500">
+            </div>
+
+            <!-- Yearly picker -->
+            <div id="repInput-yearly" class="hidden flex items-center gap-3">
+              <span class="font-semibold text-slate-700">Select Year:</span>
+              <select id="repYearInput" onchange="loadReportData()" class="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold focus:outline-none focus:border-rose-500">
+                <option value="2027">2027</option>
+                <option value="2026" selected>2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
+
+            <!-- Custom date range -->
+            <div id="repInput-custom" class="hidden flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <span class="font-semibold text-slate-700">From:</span>
+                <input type="date" id="repCustomStart" onchange="loadReportData()" class="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-rose-500">
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-semibold text-slate-700">To:</span>
+                <input type="date" id="repCustomEnd" onchange="loadReportData()" class="p-2 bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-rose-500">
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 ml-auto">
+              <button onclick="loadReportData()" class="py-2 px-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold rounded-lg flex items-center gap-1 transition">
+                <i class="fa-solid fa-rotate-right text-[10px]"></i> Refresh Preview
+              </button>
+              <button onclick="downloadPdfReport()" class="py-2 px-3.5 rose-gradient text-white font-semibold rounded-lg shadow-sm flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-pdf"></i> Download PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPORT PREVIEW SECTION -->
+        <div class="space-y-4">
+          <!-- SUMMARY METRICS -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Appointments</p>
+              <h3 class="text-2xl font-bold text-slate-900 mt-1" id="repTotalOrders">0</h3>
+              <p class="text-[11px] text-slate-500 mt-1">In selected period</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Gross Expected</p>
+              <h3 class="text-2xl font-bold text-slate-900 mt-1" id="repTotalExpected">₹0</h3>
+              <p class="text-[11px] text-slate-500 mt-1">Total bill value</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Total Collected</p>
+              <h3 class="text-2xl font-bold text-emerald-600 mt-1" id="repTotalCollected">₹0</h3>
+              <p class="text-[11px] text-emerald-700 mt-1">Paid bookings</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">Pending Balance</p>
+              <h3 class="text-2xl font-bold text-amber-600 mt-1" id="repTotalPending">₹0</h3>
+              <p class="text-[11px] text-amber-700 mt-1">Unpaid orders</p>
+            </div>
+          </div>
+
+          <!-- PAYMENT METHODS BREAKDOWN BAR -->
+          <div class="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-slate-700 uppercase tracking-wider text-[11px]">Payment Breakdown:</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-4 md:gap-6">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span class="text-slate-600">Cash: <strong class="text-slate-900" id="repCash">₹0</strong></span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span class="text-slate-600">UPI / GPay: <strong class="text-slate-900" id="repUpi">₹0</strong></span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                <span class="text-slate-600">Card: <strong class="text-slate-900" id="repCard">₹0</strong></span>
+              </div>
+            </div>
+            <div class="text-[11px] text-slate-500 font-semibold bg-slate-50 py-1 px-2.5 rounded-lg border border-slate-200" id="repPreviewPeriod"></div>
+          </div>
+
+          <!-- ORDERS PREVIEW TABLE -->
+          <div class="bg-white rounded-2xl border border-rose-100 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+              <h4 class="font-bold text-slate-900 text-sm serif">Detailed Bookings List</h4>
+              <span class="text-xs text-slate-400">Exported in PDF report</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-rose-50/60 text-[11px] font-bold text-slate-600 uppercase border-b border-rose-100">
+                    <th class="py-3 px-3">#</th>
+                    <th class="py-3 px-3">Date & Time</th>
+                    <th class="py-3 px-3">Customer</th>
+                    <th class="py-3 px-3">Phone</th>
+                    <th class="py-3 px-3">Services Booked</th>
+                    <th class="py-3 px-3 text-right">Amount</th>
+                    <th class="py-3 px-3 text-center">Payment</th>
+                  </tr>
+                </thead>
+                <tbody id="repTableBody" class="divide-y divide-slate-100 text-xs">
+                  <!-- Dynamic rows -->
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -389,22 +557,30 @@
       loadDashboard();
       loadServices();
       loadAppointments();
+      initReportPickers();
     }
 
     function switchTab(tabId) {
-      ['dashboard', 'appointments', 'services', 'settings'].forEach(t => {
-        document.getElementById('tab-' + t).classList.add('hidden');
+      ['dashboard', 'appointments', 'reports', 'services', 'settings'].forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if (el) el.classList.add('hidden');
         const btn = document.getElementById('tabBtn-' + t);
-        btn.classList.remove('bg-white', 'text-rose-700', 'shadow-sm');
-        btn.classList.add('text-slate-600');
+        if (btn) {
+          btn.classList.remove('bg-white', 'text-rose-700', 'shadow-sm');
+          btn.classList.add('text-slate-600');
+        }
       });
-      document.getElementById('tab-' + tabId).classList.remove('hidden');
+      const target = document.getElementById('tab-' + tabId);
+      if (target) target.classList.remove('hidden');
       const activeBtn = document.getElementById('tabBtn-' + tabId);
-      activeBtn.classList.add('bg-white', 'text-rose-700', 'shadow-sm');
-      activeBtn.classList.remove('text-slate-600');
+      if (activeBtn) {
+        activeBtn.classList.add('bg-white', 'text-rose-700', 'shadow-sm');
+        activeBtn.classList.remove('text-slate-600');
+      }
 
       if (tabId === 'dashboard') loadDashboard();
       if (tabId === 'appointments') loadAppointments();
+      if (tabId === 'reports') loadReportData();
       if (tabId === 'services') loadServices();
     }
 
@@ -737,6 +913,282 @@
       msg.classList.remove('hidden');
       setTimeout(() => msg.classList.add('hidden'), 3000);
       loadSettings();
+    }
+
+    // ─────────────────────────────────────────────
+    // REPORT GENERATOR & PDF DOWNLOAD
+    // ─────────────────────────────────────────────
+    let reportType = 'weekly';
+    let currentReportData = null;
+
+    function initReportPickers() {
+      const today = new Date();
+      const currentMonth = today.toISOString().slice(0, 7);
+      const currentYear = String(today.getFullYear());
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(today.getDate() - 6);
+
+      const mInput = document.getElementById('repMonthInput');
+      if (mInput) mInput.value = currentMonth;
+
+      const yInput = document.getElementById('repYearInput');
+      if (yInput) yInput.value = currentYear;
+
+      const cStart = document.getElementById('repCustomStart');
+      const cEnd = document.getElementById('repCustomEnd');
+      if (cStart) cStart.value = sevenDaysAgo.toISOString().slice(0, 10);
+      if (cEnd) cEnd.value = today.toISOString().slice(0, 10);
+    }
+
+    function setReportType(type) {
+      reportType = type;
+      ['weekly', 'monthly', 'yearly', 'custom'].forEach(t => {
+        const btn = document.getElementById('repBtn-' + t);
+        if (btn) {
+          if (t === type) {
+            btn.className = 'py-2.5 px-3 rounded-xl border border-rose-200 transition text-center bg-rose-600 text-white shadow-sm font-semibold';
+          } else {
+            btn.className = 'py-2.5 px-3 rounded-xl border border-slate-200 transition text-center bg-slate-50 text-slate-700 hover:bg-rose-50 font-semibold';
+          }
+        }
+      });
+
+      document.getElementById('repInput-weekly').classList.toggle('hidden', type !== 'weekly');
+      document.getElementById('repInput-monthly').classList.toggle('hidden', type !== 'monthly');
+      document.getElementById('repInput-yearly').classList.toggle('hidden', type !== 'yearly');
+      document.getElementById('repInput-custom').classList.toggle('hidden', type !== 'custom');
+
+      loadReportData();
+    }
+
+    async function loadReportData() {
+      let url = '/api/reports?type=' + reportType;
+
+      if (reportType === 'monthly') {
+        const month = document.getElementById('repMonthInput').value;
+        if (month) url += '&month=' + encodeURIComponent(month);
+      } else if (reportType === 'yearly') {
+        const year = document.getElementById('repYearInput').value;
+        if (year) url += '&year=' + encodeURIComponent(year);
+      } else if (reportType === 'custom') {
+        const start = document.getElementById('repCustomStart').value;
+        const end = document.getElementById('repCustomEnd').value;
+        if (start) url += '&startDate=' + encodeURIComponent(start);
+        if (end) url += '&endDate=' + encodeURIComponent(end);
+      }
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        currentReportData = data;
+        renderReportPreview(data);
+      } catch (err) {
+        console.error('Failed to load report data', err);
+      }
+    }
+
+    function renderReportPreview(data) {
+      const s = data.summary || {};
+      const typeLabel = reportType.toUpperCase();
+      document.getElementById('repPreviewPeriod').innerText = `${typeLabel} REPORT: ${data.startDate} to ${data.endDate}`;
+
+      document.getElementById('repTotalOrders').innerText = s.total_orders || 0;
+      document.getElementById('repTotalExpected').innerText = '₹' + Number(s.total_expected || 0).toLocaleString('en-IN');
+      document.getElementById('repTotalCollected').innerText = '₹' + Number(s.total_collected || 0).toLocaleString('en-IN');
+      document.getElementById('repTotalPending').innerText = '₹' + Number(s.total_pending || 0).toLocaleString('en-IN');
+
+      document.getElementById('repCash').innerText = '₹' + Number(s.paid_cash || 0).toLocaleString('en-IN');
+      document.getElementById('repUpi').innerText = '₹' + Number(s.paid_upi || 0).toLocaleString('en-IN');
+      document.getElementById('repCard').innerText = '₹' + Number(s.paid_card || 0).toLocaleString('en-IN');
+
+      const tbody = document.getElementById('repTableBody');
+      if (!data.appointments || data.appointments.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs text-slate-400">No appointments recorded for this period.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.appointments.map((a, i) => `
+        <tr class="hover:bg-rose-50/30 border-b border-slate-100 transition">
+          <td class="py-2.5 px-3 font-mono text-slate-400 text-xs">${i + 1}</td>
+          <td class="py-2.5 px-3 whitespace-nowrap text-xs font-semibold text-slate-700">${a.appointment_date} <span class="text-slate-400 font-normal">at ${a.appointment_time}</span></td>
+          <td class="py-2.5 px-3 text-xs font-bold text-slate-900">${a.customer_name}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-500 font-mono">${a.customer_phone}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-600 max-w-[220px] truncate" title="${a.services_list || a.notes || 'General Treatment'}">${a.services_list || a.notes || 'General Treatment'}</td>
+          <td class="py-2.5 px-3 text-xs font-bold text-slate-900 text-right">₹${Number(a.total_amount).toLocaleString('en-IN')}</td>
+          <td class="py-2.5 px-3 text-center whitespace-nowrap">${renderPaymentBadge(a.payment_status)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function downloadPdfReport() {
+      if (!currentReportData) {
+        alert('Report data is still loading. Please wait a moment.');
+        return;
+      }
+
+      const data = currentReportData;
+      const s = data.summary || {};
+
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert('PDF library is loading. Please check your internet connection.');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const parlourName = (data.parlourName || 'Vrunda Beauty Parlour').toUpperCase();
+      const parlourPhone = data.parlourPhone || '+91 9876543210';
+      const periodTitle = reportType.toUpperCase() + ' PERFORMANCE REPORT';
+
+      // 1. Top Header Banner (Rose 700)
+      doc.setFillColor(190, 18, 60);
+      doc.rect(0, 0, 210, 30, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text(parlourName, 14, 13);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('OFFICIAL BUSINESS SALES & APPOINTMENT REPORT', 14, 20);
+
+      doc.setFontSize(8);
+      doc.text(`Phone: ${parlourPhone}   |   Cloudflare D1 Certified Database Statement`, 14, 25);
+
+      // 2. Info / Meta Strip
+      doc.setFillColor(255, 241, 242);
+      doc.setDrawColor(254, 205, 211);
+      doc.roundedRect(14, 34, 182, 13, 2, 2, 'FD');
+
+      doc.setTextColor(136, 19, 55);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text(`${periodTitle}: ${data.startDate} to ${data.endDate}`, 18, 42);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 142, 42);
+
+      // 3. Four Metric Summary Boxes
+      const cardY = 51;
+      const cardW = 43;
+      const cardH = 20;
+
+      // Box 1: Total Appointments
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, cardY, cardW, cardH, 2, 2, 'FD');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL APPOINTMENTS', 18, cardY + 6);
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text(String(s.total_orders || 0), 18, cardY + 15);
+
+      // Box 2: Total Gross Expected
+      doc.roundedRect(60, cardY, cardW, cardH, 2, 2, 'FD');
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text('TOTAL BILL VALUE', 64, cardY + 6);
+      doc.setFontSize(11);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Rs. ${Number(s.total_expected || 0).toLocaleString('en-IN')}`, 64, cardY + 15);
+
+      // Box 3: Total Collected
+      doc.setFillColor(240, 253, 244);
+      doc.setDrawColor(187, 247, 208);
+      doc.roundedRect(106, cardY, cardW, cardH, 2, 2, 'FD');
+      doc.setFontSize(7);
+      doc.setTextColor(22, 101, 52);
+      doc.text('TOTAL COLLECTED', 110, cardY + 6);
+      doc.setFontSize(11);
+      doc.setTextColor(21, 128, 61);
+      doc.text(`Rs. ${Number(s.total_collected || 0).toLocaleString('en-IN')}`, 110, cardY + 15);
+
+      // Box 4: Pending Balance
+      doc.setFillColor(254, 252, 232);
+      doc.setDrawColor(254, 240, 138);
+      doc.roundedRect(152, cardY, cardW, cardH, 2, 2, 'FD');
+      doc.setFontSize(7);
+      doc.setTextColor(133, 77, 14);
+      doc.text('UNPAID / PENDING', 156, cardY + 6);
+      doc.setFontSize(11);
+      doc.setTextColor(180, 83, 9);
+      doc.text(`Rs. ${Number(s.total_pending || 0).toLocaleString('en-IN')}`, 156, cardY + 15);
+
+      // Payment Breakdown line below cards
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Payment Collections:   Cash: Rs. ${Number(s.paid_cash || 0).toLocaleString('en-IN')}   |   UPI/GPay: Rs. ${Number(s.paid_upi || 0).toLocaleString('en-IN')}   |   Card: Rs. ${Number(s.paid_card || 0).toLocaleString('en-IN')}`,
+        14,
+        cardY + 26
+      );
+
+      // 4. Appointments Table
+      const tableRows = (data.appointments || []).map((a, i) => [
+        i + 1,
+        `${a.appointment_date}\n${a.appointment_time}`,
+        a.customer_name,
+        a.customer_phone,
+        a.services_list || a.notes || 'General Treatment',
+        `Rs. ${Number(a.total_amount).toLocaleString('en-IN')}`,
+        a.payment_status === 'paid_cash' ? 'Cash' : (a.payment_status === 'paid_upi' ? 'UPI' : (a.payment_status === 'paid_card' ? 'Card' : 'Pending')),
+        a.status.charAt(0).toUpperCase() + a.status.slice(1)
+      ]);
+
+      doc.autoTable({
+        startY: cardY + 30,
+        head: [['#', 'Date & Time', 'Customer', 'Phone', 'Services Booked', 'Amount', 'Payment', 'Status']],
+        body: tableRows.length > 0 ? tableRows : [['-', '-', 'No appointments found in this range', '-', '-', 'Rs. 0', '-', '-']],
+        theme: 'striped',
+        headStyles: {
+          fillColor: [190, 18, 60],
+          textColor: [255, 255, 255],
+          fontSize: 8,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2.5,
+          textColor: [30, 41, 59],
+          valign: 'middle',
+          overflow: 'linebreak'
+        },
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center' },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 32, fontStyle: 'bold' },
+          3: { cellWidth: 23 },
+          4: { cellWidth: 46 },
+          5: { cellWidth: 20, halign: 'right', fontStyle: 'bold' },
+          6: { cellWidth: 15, halign: 'center' },
+          7: { cellWidth: 14, halign: 'center' }
+        },
+        alternateRowStyles: {
+          fillColor: [255, 245, 247]
+        },
+        didDrawPage: function(dataHook) {
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(7.5);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `Report: ${parlourName}   •   Page ${dataHook.pageNumber} of ${pageCount}`,
+            14,
+            290
+          );
+          doc.text('Confidential Management Report', 160, 290);
+        }
+      });
+
+      const cleanName = parlourName.replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`${cleanName}_${reportType.toUpperCase()}_REPORT_${data.startDate}_to_${data.endDate}.pdf`);
     }
   </script>
 </body>

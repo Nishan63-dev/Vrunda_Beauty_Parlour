@@ -23,6 +23,10 @@ A 100% serverless, private management application for beauty parlour owners, bui
 - **💇 Services Menu**:
   - Add, view, and delete parlour services and treatments.
   - Pre-seeded with popular services (Haircuts, Facials, Threading, Waxing, Bridal Makeup, Manicure).
+- **📊 Weekly, Monthly & Yearly PDF Reports**:
+  - Download official PDF statements for **This Week**, **This Month**, **This Year**, or any **Custom Date Range**.
+  - Includes Total Bookings, Gross Revenue, Collections (Cash vs UPI vs Card), and Unpaid Dues.
+  - Generates branded multi-page PDF with detailed customer booking breakdowns.
 - **⚙️ Settings**:
   - Update Parlour name and contact phone number.
   - Update the security PIN.
