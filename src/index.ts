@@ -9,85 +9,141 @@ const app = new Hono<{ Bindings: Bindings }>();
 
 app.use('/api/*', cors());
 
+app.onError((err, c) => {
+  console.error('Unhandled API Error:', err);
+  return c.json({
+    error: err.message || 'Server error',
+    details: String(err)
+  }, 500);
+});
+
+let isDbReady = false;
+
 // Auto-initialize DB schema & default seeds if tables are not yet present in D1
 async function ensureDbInitialized(db: D1Database) {
+  if (isDbReady) return;
+
   try {
-    await db.prepare('SELECT 1 FROM appointments LIMIT 1').first();
-  } catch {
-    try {
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT NOT NULL, price REAL NOT NULL, duration_minutes INTEGER DEFAULT 30, is_active INTEGER DEFAULT 1, created_at TEXT DEFAULT (datetime('now', 'localtime')));
-        CREATE TABLE IF NOT EXISTS appointments (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT NOT NULL, customer_phone TEXT NOT NULL, appointment_date TEXT NOT NULL, appointment_time TEXT NOT NULL, total_amount REAL NOT NULL DEFAULT 0, paid_amount REAL NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'confirmed', payment_status TEXT NOT NULL DEFAULT 'pending', notes TEXT, created_at TEXT DEFAULT (datetime('now', 'localtime')), updated_at TEXT DEFAULT (datetime('now', 'localtime')));
-        CREATE TABLE IF NOT EXISTS appointment_services (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, service_id INTEGER, service_name TEXT NOT NULL, price REAL NOT NULL);
-        CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, amount REAL NOT NULL, payment_method TEXT NOT NULL, payment_date TEXT DEFAULT (datetime('now', 'localtime')), note TEXT, created_at TEXT DEFAULT (datetime('now', 'localtime')));
-        CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
-        CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
-        CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id);
-        CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id);
+    // 1. Settings Table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
 
-        INSERT OR IGNORE INTO settings (key, value) VALUES ('passcode', '4050'), ('parlour_name', 'Vrunda Beauty Parlour'), ('parlour_phone', '+91 9876543210'), ('currency', '₹');
-        INSERT OR IGNORE INTO services (id, name, category, price, duration_minutes) VALUES
-          (1, 'Eyebrow & Upper Lip Threading', 'Threading', 100, 15),
-          (2, 'Full Face Threading', 'Threading', 250, 25),
-          (3, 'Basic Hair Cut & Styling', 'Hair', 350, 30),
-          (4, 'Layer Hair Cut', 'Hair', 600, 45),
-          (5, 'Hair Spa with Deep Conditioning', 'Hair', 1200, 60),
-          (6, 'Hair Straightening / Keratin', 'Hair', 3500, 120),
-          (7, 'Fruit Cleanup', 'Skin & Facial', 500, 30),
-          (8, 'Gold Glow Facial', 'Skin & Facial', 1500, 60),
-          (9, 'Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75),
-          (10, 'Full Arms + Underarms Waxing', 'Waxing', 400, 30),
-          (11, 'Full Legs Waxing', 'Waxing', 500, 35),
-          (12, 'Rica Waxing Package', 'Waxing', 1200, 60),
-          (13, 'Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50),
-          (14, 'Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60),
-          (15, 'Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90),
-          (16, 'Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180);
+    // 2. Services Table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        price REAL NOT NULL,
+        duration_minutes INTEGER DEFAULT 30,
+        is_active INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
 
-        INSERT OR IGNORE INTO appointments (id, customer_name, customer_phone, appointment_date, appointment_time, total_amount, paid_amount, status, payment_status, notes) VALUES
-          (1, 'Pooja Sharma', '9825123456', date('now', 'localtime'), '11:00', 8000, 3000, 'confirmed', 'partial', 'Bridal Makeup package'),
-          (2, 'Ananya Patel', '9978123456', date('now', 'localtime'), '14:30', 950, 950, 'confirmed', 'paid', 'Hair Cut + Threading');
+    // 3. Appointments Table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        customer_name TEXT NOT NULL,
+        customer_phone TEXT NOT NULL,
+        appointment_date TEXT NOT NULL,
+        appointment_time TEXT NOT NULL,
+        total_amount REAL NOT NULL DEFAULT 0,
+        paid_amount REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'confirmed',
+        payment_status TEXT NOT NULL DEFAULT 'pending',
+        notes TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
+      CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+    `);
 
-        INSERT OR IGNORE INTO appointment_services (id, appointment_id, service_id, service_name, price) VALUES
-          (1, 1, 16, 'Bridal Makeup with Draping', 8000),
-          (2, 2, 4, 'Layer Hair Cut', 600),
-          (3, 2, 3, 'Basic Hair Cut & Styling', 350);
+    // 4. Appointment Services Table
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS appointment_services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+        service_id INTEGER,
+        service_name TEXT NOT NULL,
+        price REAL NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id);
+    `);
 
-        INSERT OR IGNORE INTO payments (id, appointment_id, amount, payment_method, note) VALUES
-          (1, 1, 3000, 'upi', 'Advance booking deposit'),
-          (2, 2, 950, 'cash', 'Full payment at counter');
-      `);
-    } catch (e) {
-      console.error('Auto DB init failed', e);
-    }
-  }
-
-  // Ensure payments table exists in existing database
-  try {
+    // 5. Payments Table
     await db.exec(`
       CREATE TABLE IF NOT EXISTS payments (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
         amount REAL NOT NULL,
         payment_method TEXT NOT NULL,
-        payment_date TEXT DEFAULT (datetime('now', 'localtime')),
+        payment_date TEXT DEFAULT (datetime('now')),
         note TEXT,
-        created_at TEXT DEFAULT (datetime('now', 'localtime'))
+        created_at TEXT DEFAULT (datetime('now'))
       );
       CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id);
     `);
-  } catch {}
 
-  // Ensure paid_amount column exists in appointments
-  try {
-    await db.exec("ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0;");
-  } catch {}
+    // 6. Migrations for existing appointments table
+    try {
+      await db.exec("ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0;");
+    } catch {}
 
-  // Backfill paid_amount for older paid appointments if 0
-  try {
-    await db.exec("UPDATE appointments SET paid_amount = total_amount WHERE (payment_status = 'paid' OR payment_status LIKE 'paid_%') AND (paid_amount IS NULL OR paid_amount = 0);");
-  } catch {}
+    // 7. Seed Settings if empty
+    try {
+      const settingCount = await db.prepare("SELECT COUNT(*) as count FROM settings").first<{ count: number }>();
+      if (!settingCount || settingCount.count === 0) {
+        await db.exec(`
+          INSERT OR IGNORE INTO settings (key, value) VALUES
+            ('passcode', '4050'),
+            ('parlour_name', 'Vrunda Beauty Parlour'),
+            ('parlour_phone', '+91 9876543210'),
+            ('currency', '₹');
+        `);
+      }
+    } catch (e) {
+      console.error('Failed to seed settings', e);
+    }
+
+    // 8. Seed Services if empty
+    try {
+      const serviceCount = await db.prepare("SELECT COUNT(*) as count FROM services WHERE is_active = 1").first<{ count: number }>();
+      if (!serviceCount || serviceCount.count === 0) {
+        await db.exec(`
+          INSERT OR IGNORE INTO services (id, name, category, price, duration_minutes) VALUES
+            (1, 'Eyebrow & Upper Lip Threading', 'Threading', 100, 15),
+            (2, 'Full Face Threading', 'Threading', 250, 25),
+            (3, 'Basic Hair Cut & Styling', 'Hair', 350, 30),
+            (4, 'Layer Hair Cut', 'Hair', 600, 45),
+            (5, 'Hair Spa with Deep Conditioning', 'Hair', 1200, 60),
+            (6, 'Hair Straightening / Keratin', 'Hair', 3500, 120),
+            (7, 'Fruit Cleanup', 'Skin & Facial', 500, 30),
+            (8, 'Gold Glow Facial', 'Skin & Facial', 1500, 60),
+            (9, 'Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75),
+            (10, 'Full Arms + Underarms Waxing', 'Waxing', 400, 30),
+            (11, 'Full Legs Waxing', 'Waxing', 500, 35),
+            (12, 'Rica Waxing Package', 'Waxing', 1200, 60),
+            (13, 'Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50),
+            (14, 'Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60),
+            (15, 'Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90),
+            (16, 'Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180);
+        `);
+      }
+    } catch (e) {
+      console.error('Failed to seed services', e);
+    }
+
+    isDbReady = true;
+  } catch (err) {
+    console.error('Database initialization error:', err);
+  }
 }
 
 app.use('/api/*', async (c, next) => {
@@ -95,6 +151,35 @@ app.use('/api/*', async (c, next) => {
     await ensureDbInitialized(c.env.DB);
   }
   await next();
+});
+
+// Database status & health check endpoint
+app.get('/api/db/status', async (c) => {
+  const db = c.env?.DB;
+  if (!db) return c.json({ error: 'DB binding is missing from worker environment' }, 500);
+
+  if (c.req.query('init') === '1') {
+    isDbReady = false;
+    await ensureDbInitialized(db);
+  }
+
+  const tablesRes = await db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+  const servicesCount = await db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>().catch(() => null);
+  const settingsCount = await db.prepare("SELECT COUNT(*) as c FROM settings").first<{ c: number }>().catch(() => null);
+  const apptsCount = await db.prepare("SELECT COUNT(*) as c FROM appointments").first<{ c: number }>().catch(() => null);
+  const paymentsCount = await db.prepare("SELECT COUNT(*) as c FROM payments").first<{ c: number }>().catch(() => null);
+
+  return c.json({
+    status: 'ok',
+    isDbReady,
+    tables: (tablesRes.results || []).map((t: any) => t.name),
+    counts: {
+      services: servicesCount?.c ?? 'error',
+      settings: settingsCount?.c ?? 'error',
+      appointments: apptsCount?.c ?? 'error',
+      payments: paymentsCount?.c ?? 'error'
+    }
+  });
 });
 
 // Helper: Get setting value
@@ -338,7 +423,7 @@ app.post('/api/appointments', async (c) => {
     const pNote = data.payment_note || (paid_amount < total ? 'Advance booking deposit' : 'Full payment on booking');
     await db.prepare(`
       INSERT INTO payments (appointment_id, amount, payment_method, note, payment_date)
-      VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
+      VALUES (?, ?, ?, ?, datetime('now'))
     `).bind(appointmentId, paid_amount, pMethod, pNote).run();
   }
 
@@ -355,224 +440,277 @@ app.post('/api/appointments', async (c) => {
 // 5. PAYMENT HISTORY & INSTALLMENTS (ADVANCE / EMI)
 // ─────────────────────────────────────────────
 app.get('/api/appointments/:id/payments', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
 
-  const appt = await db.prepare(`
-    SELECT id, customer_name, customer_phone, appointment_date, appointment_time, total_amount, COALESCE(paid_amount, 0) as paid_amount, payment_status
-    FROM appointments WHERE id = ?
-  `).bind(id).first<{
-    id: number;
-    customer_name: string;
-    customer_phone: string;
-    appointment_date: string;
-    appointment_time: string;
-    total_amount: number;
-    paid_amount: number;
-    payment_status: string;
-  }>();
+    const appt = await db.prepare(`
+      SELECT id, customer_name, customer_phone, appointment_date, appointment_time, total_amount, COALESCE(paid_amount, 0) as paid_amount, payment_status
+      FROM appointments WHERE id = ?
+    `).bind(id).first<{
+      id: number;
+      customer_name: string;
+      customer_phone: string;
+      appointment_date: string;
+      appointment_time: string;
+      total_amount: number;
+      paid_amount: number;
+      payment_status: string;
+    }>();
 
-  if (!appt) return c.json({ error: 'Appointment not found' }, 404);
+    if (!appt) return c.json({ error: 'Appointment not found' }, 404);
 
-  const { results: payments } = await db.prepare(`
-    SELECT * FROM payments WHERE appointment_id = ? ORDER BY payment_date ASC, id ASC
-  `).bind(id).all();
+    const { results: payments } = await db.prepare(`
+      SELECT * FROM payments WHERE appointment_id = ? ORDER BY payment_date ASC, id ASC
+    `).bind(id).all();
 
-  const total = Number(appt.total_amount) || 0;
-  const paid = Number(appt.paid_amount) || 0;
-  const balanceDue = Math.max(0, total - paid);
+    const total = Number(appt.total_amount) || 0;
+    const paid = Number(appt.paid_amount) || 0;
+    const balanceDue = Math.max(0, total - paid);
 
-  return c.json({
-    appointment: appt,
-    payments: payments || [],
-    total,
-    paid,
-    balanceDue
-  });
+    return c.json({
+      appointment: appt,
+      payments: payments || [],
+      total,
+      paid,
+      balanceDue
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 app.post('/api/appointments/:id/payments', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
-  const body = await c.req.json<{
-    amount: number;
-    payment_method: string;
-    note?: string;
-  }>();
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
 
-  const amount = Number(body.amount);
-  if (!amount || amount <= 0) {
-    return c.json({ error: 'Valid payment amount is required' }, 400);
+    const body = await c.req.json<{
+      amount: number;
+      payment_method: string;
+      note?: string;
+    }>();
+
+    const amount = Number(body.amount);
+    if (!amount || amount <= 0) {
+      return c.json({ error: 'Valid payment amount is required' }, 400);
+    }
+
+    const appt = await db.prepare('SELECT total_amount, paid_amount FROM appointments WHERE id = ?').bind(id).first<{ total_amount: number; paid_amount: number }>();
+    if (!appt) return c.json({ error: 'Appointment not found' }, 404);
+
+    const method = body.payment_method || 'cash';
+    const totalBill = Number(appt.total_amount);
+    const currentPaid = Number(appt.paid_amount || 0);
+    const remainingBefore = Math.max(0, totalBill - currentPaid);
+
+    const note = body.note || (amount >= remainingBefore ? 'Final balance settlement' : 'Installment payment');
+
+    // Insert payment record
+    await db.prepare(`
+      INSERT INTO payments (appointment_id, amount, payment_method, note, payment_date)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).bind(id, amount, method, note).run();
+
+    // Recalculate total paid
+    const sumRes = await db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE appointment_id = ?
+    `).bind(id).first<{ total_paid: number }>();
+
+    const newTotalPaid = sumRes?.total_paid ?? (currentPaid + amount);
+    const newStatus = (newTotalPaid >= totalBill) ? 'paid' : (newTotalPaid > 0 ? 'partial' : 'pending');
+
+    await db.prepare(`
+      UPDATE appointments 
+      SET paid_amount = ?, payment_status = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).bind(newTotalPaid, newStatus, id).run();
+
+    return c.json({
+      success: true,
+      totalPaid: newTotalPaid,
+      balanceDue: Math.max(0, totalBill - newTotalPaid),
+      paymentStatus: newStatus
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
   }
-
-  const appt = await db.prepare('SELECT total_amount, paid_amount FROM appointments WHERE id = ?').bind(id).first<{ total_amount: number; paid_amount: number }>();
-  if (!appt) return c.json({ error: 'Appointment not found' }, 404);
-
-  const method = body.payment_method || 'cash';
-  const totalBill = Number(appt.total_amount);
-  const currentPaid = Number(appt.paid_amount || 0);
-  const remainingBefore = Math.max(0, totalBill - currentPaid);
-
-  const note = body.note || (amount >= remainingBefore ? 'Final balance settlement' : 'Installment payment');
-
-  // Insert payment record
-  await db.prepare(`
-    INSERT INTO payments (appointment_id, amount, payment_method, note, payment_date)
-    VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
-  `).bind(id, amount, method, note).run();
-
-  // Recalculate total paid
-  const sumRes = await db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE appointment_id = ?
-  `).bind(id).first<{ total_paid: number }>();
-
-  const newTotalPaid = sumRes?.total_paid ?? (currentPaid + amount);
-  const newStatus = (newTotalPaid >= totalBill) ? 'paid' : (newTotalPaid > 0 ? 'partial' : 'pending');
-
-  await db.prepare(`
-    UPDATE appointments 
-    SET paid_amount = ?, payment_status = ?, updated_at = datetime('now', 'localtime')
-    WHERE id = ?
-  `).bind(newTotalPaid, newStatus, id).run();
-
-  return c.json({
-    success: true,
-    totalPaid: newTotalPaid,
-    balanceDue: Math.max(0, totalBill - newTotalPaid),
-    paymentStatus: newStatus
-  });
 });
 
 app.delete('/api/payments/:id', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
 
-  const payment = await db.prepare('SELECT appointment_id FROM payments WHERE id = ?').bind(id).first<{ appointment_id: number }>();
-  if (!payment) return c.json({ error: 'Payment not found' }, 404);
+    const payment = await db.prepare('SELECT appointment_id FROM payments WHERE id = ?').bind(id).first<{ appointment_id: number }>();
+    if (!payment) return c.json({ error: 'Payment not found' }, 404);
 
-  await db.prepare('DELETE FROM payments WHERE id = ?').bind(id).run();
+    await db.prepare('DELETE FROM payments WHERE id = ?').bind(id).run();
 
-  // Recalculate total paid on appointment
-  const sumRes = await db.prepare(`
-    SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE appointment_id = ?
-  `).bind(payment.appointment_id).first<{ total_paid: number }>();
+    // Recalculate total paid on appointment
+    const sumRes = await db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE appointment_id = ?
+    `).bind(payment.appointment_id).first<{ total_paid: number }>();
 
-  const appt = await db.prepare('SELECT total_amount FROM appointments WHERE id = ?').bind(payment.appointment_id).first<{ total_amount: number }>();
-  const newTotalPaid = sumRes?.total_paid ?? 0;
-  const totalBill = Number(appt?.total_amount || 0);
-  const newStatus = (newTotalPaid >= totalBill) ? 'paid' : (newTotalPaid > 0 ? 'partial' : 'pending');
+    const appt = await db.prepare('SELECT total_amount FROM appointments WHERE id = ?').bind(payment.appointment_id).first<{ total_amount: number }>();
+    const newTotalPaid = sumRes?.total_paid ?? 0;
+    const totalBill = Number(appt?.total_amount || 0);
+    const newStatus = (newTotalPaid >= totalBill) ? 'paid' : (newTotalPaid > 0 ? 'partial' : 'pending');
 
-  await db.prepare(`
-    UPDATE appointments SET paid_amount = ?, payment_status = ?, updated_at = datetime('now', 'localtime') WHERE id = ?
-  `).bind(newTotalPaid, newStatus, payment.appointment_id).run();
+    await db.prepare(`
+      UPDATE appointments SET paid_amount = ?, payment_status = ?, updated_at = datetime('now') WHERE id = ?
+    `).bind(newTotalPaid, newStatus, payment.appointment_id).run();
 
-  return c.json({ success: true, newTotalPaid, balanceDue: Math.max(0, totalBill - newTotalPaid), paymentStatus: newStatus });
+    return c.json({ success: true, newTotalPaid, balanceDue: Math.max(0, totalBill - newTotalPaid), paymentStatus: newStatus });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ─────────────────────────────────────────────
 // 5. UPDATE APPOINTMENT
 // ─────────────────────────────────────────────
 app.patch('/api/appointments/:id', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
-  const data = await c.req.json<{
-    status?: string;
-    payment_status?: string;
-    notes?: string;
-  }>();
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
 
-  const updates: string[] = [];
-  const params: any[] = [];
+    const data = await c.req.json<{
+      status?: string;
+      payment_status?: string;
+      notes?: string;
+    }>();
 
-  if (data.status) {
-    updates.push('status = ?');
-    params.push(data.status);
-  }
-  if (data.payment_status) {
-    updates.push('payment_status = ?');
-    params.push(data.payment_status);
-  }
-  if (data.notes !== undefined) {
-    updates.push('notes = ?');
-    params.push(data.notes);
-  }
+    const updates: string[] = [];
+    const params: any[] = [];
 
-  if (updates.length === 0) {
+    if (data.status) {
+      updates.push('status = ?');
+      params.push(data.status);
+    }
+    if (data.payment_status) {
+      updates.push('payment_status = ?');
+      params.push(data.payment_status);
+    }
+    if (data.notes !== undefined) {
+      updates.push('notes = ?');
+      params.push(data.notes);
+    }
+
+    if (updates.length === 0) {
+      return c.json({ success: true });
+    }
+
+    updates.push("updated_at = datetime('now')");
+    params.push(id);
+
+    await db.prepare(`UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
+
     return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
   }
-
-  updates.push("updated_at = datetime('now', 'localtime')");
-  params.push(id);
-
-  await db.prepare(`UPDATE appointments SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
-
-  return c.json({ success: true });
 });
 
 // ─────────────────────────────────────────────
 // 6. DELETE APPOINTMENT
 // ─────────────────────────────────────────────
 app.delete('/api/appointments/:id', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
-  await db.prepare('DELETE FROM appointments WHERE id = ?').bind(id).run();
-  return c.json({ success: true });
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
+    await db.prepare('DELETE FROM appointments WHERE id = ?').bind(id).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ─────────────────────────────────────────────
 // 7. SERVICES LIST & CRUD
 // ─────────────────────────────────────────────
 app.get('/api/services', async (c) => {
-  const db = c.env.DB;
-  const { results } = await db.prepare('SELECT * FROM services WHERE is_active = 1 ORDER BY category, name').all();
-  return c.json(results || []);
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const { results } = await db.prepare('SELECT * FROM services WHERE is_active = 1 ORDER BY category, name').all();
+    return c.json(results || []);
+  } catch (err: any) {
+    console.error('Failed to get services:', err);
+    return c.json({ error: err.message || 'Failed to get services' }, 500);
+  }
 });
 
 app.post('/api/services', async (c) => {
-  const db = c.env.DB;
-  const { name, category, price, duration_minutes } = await c.req.json();
-  if (!name || !price) {
-    return c.json({ error: 'Name and price required' }, 400);
-  }
-  await db.prepare(`
-    INSERT INTO services (name, category, price, duration_minutes)
-    VALUES (?, ?, ?, ?)
-  `).bind(name, category || 'General', Number(price), Number(duration_minutes) || 30).run();
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const { name, category, price, duration_minutes } = await c.req.json();
+    if (!name || price === undefined || price === null || price === '') {
+      return c.json({ error: 'Name and price required' }, 400);
+    }
+    const result = await db.prepare(`
+      INSERT INTO services (name, category, price, duration_minutes)
+      VALUES (?, ?, ?, ?)
+    `).bind(String(name).trim(), category || 'General', Number(price), Number(duration_minutes) || 30).run();
 
-  return c.json({ success: true }, 201);
+    return c.json({ success: true, id: result.meta?.last_row_id }, 201);
+  } catch (err: any) {
+    console.error('Failed to create service:', err);
+    return c.json({ error: err.message || 'Failed to create service' }, 500);
+  }
 });
 
 app.delete('/api/services/:id', async (c) => {
-  const id = c.req.param('id');
-  const db = c.env.DB;
-  await db.prepare('UPDATE services SET is_active = 0 WHERE id = ?').bind(id).run();
-  return c.json({ success: true });
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    await db.prepare('UPDATE services SET is_active = 0 WHERE id = ?').bind(id).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message || 'Failed to delete service' }, 500);
+  }
 });
 
 // ─────────────────────────────────────────────
 // 8. SETTINGS
 // ─────────────────────────────────────────────
 app.get('/api/settings', async (c) => {
-  const db = c.env.DB;
-  const parlourName = await getSetting(db, 'parlour_name', 'Vrunda Beauty Parlour');
-  const parlourPhone = await getSetting(db, 'parlour_phone', '+91 9876543210');
-  const currency = await getSetting(db, 'currency', '₹');
-  return c.json({ parlourName, parlourPhone, currency });
+  try {
+    const db = c.env.DB;
+    const parlourName = await getSetting(db, 'parlour_name', 'Vrunda Beauty Parlour');
+    const parlourPhone = await getSetting(db, 'parlour_phone', '+91 9876543210');
+    const currency = await getSetting(db, 'currency', '₹');
+    return c.json({ parlourName, parlourPhone, currency });
+  } catch (err: any) {
+    return c.json({ parlourName: 'Vrunda Beauty Parlour', parlourPhone: '+91 9876543210', currency: '₹' });
+  }
 });
 
 app.post('/api/settings', async (c) => {
-  const db = c.env.DB;
-  const { parlourName, parlourPhone, passcode } = await c.req.json();
-  if (parlourName) {
-    await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_name', parlourName).run();
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const { parlourName, parlourPhone, passcode } = await c.req.json();
+    if (parlourName) {
+      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_name', parlourName).run();
+    }
+    if (parlourPhone) {
+      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_phone', parlourPhone).run();
+    }
+    if (passcode) {
+      await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('passcode', passcode).run();
+    }
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message || 'Failed to update settings' }, 500);
   }
-  if (parlourPhone) {
-    await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('parlour_phone', parlourPhone).run();
-  }
-  if (passcode) {
-    await db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').bind('passcode', passcode).run();
-  }
-  return c.json({ success: true });
 });
 
 // ─────────────────────────────────────────────

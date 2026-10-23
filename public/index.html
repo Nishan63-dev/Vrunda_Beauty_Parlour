@@ -1262,26 +1262,34 @@
         price: Number(cb.dataset.price)
       }));
 
-      await fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name,
-          customer_phone,
-          appointment_date,
-          appointment_time,
-          total_amount,
-          advance_amount,
-          payment_method,
-          payment_note: advance_amount >= total_amount ? 'Full payment on booking' : (advance_amount > 0 ? 'Advance booking deposit' : undefined),
-          notes,
-          services: selectedServices
-        })
-      });
-
-      closeBookingModal();
-      loadAppointments();
-      loadDashboard();
+      try {
+        const res = await fetch('/api/appointments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer_name,
+            customer_phone,
+            appointment_date,
+            appointment_time,
+            total_amount,
+            advance_amount,
+            payment_method,
+            payment_note: advance_amount >= total_amount ? 'Full payment on booking' : (advance_amount > 0 ? 'Advance booking deposit' : undefined),
+            notes,
+            services: selectedServices
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          closeBookingModal();
+          loadAppointments();
+          loadDashboard();
+        } else {
+          alert('Failed to save booking: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        alert('Network error saving booking: ' + err.message);
+      }
     }
 
     function openServiceModal() {
@@ -1297,32 +1305,60 @@
       const name = document.getElementById('sName').value.trim();
       const category = document.getElementById('sCategory').value;
       const price = Number(document.getElementById('sPrice').value);
-      const duration_minutes = Number(document.getElementById('sDuration').value);
+      const duration_minutes = Number(document.getElementById('sDuration').value) || 30;
 
-      await fetch('/api/services', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, category, price, duration_minutes })
-      });
+      if (!name || isNaN(price)) {
+        alert('Please provide a valid service name and price.');
+        return;
+      }
 
-      closeServiceModal();
-      loadServices();
+      try {
+        const res = await fetch('/api/services', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, category, price, duration_minutes })
+        });
+        const data = await res.json();
+        if (res.ok && (data.success || data.id)) {
+          closeServiceModal();
+          await loadServices();
+        } else {
+          alert('Failed to add service: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        alert('Network error adding service: ' + err.message);
+      }
     }
 
     async function deleteService(id) {
       if (!confirm('Remove this service from menu?')) return;
-      await fetch('/api/services/' + id, { method: 'DELETE' });
-      loadServices();
+      try {
+        const res = await fetch('/api/services/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await loadServices();
+        } else {
+          alert('Failed to remove service: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
     }
 
     async function loadSettings() {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      parlourTitle = data.parlourName;
-      document.getElementById('settingsName').value = data.parlourName;
-      document.getElementById('settingsPhone').value = data.parlourPhone;
-      document.getElementById('headerParlourName').innerText = data.parlourName;
-      document.getElementById('lockParlourTitle').innerText = data.parlourName;
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (data.parlourName) {
+          parlourTitle = data.parlourName;
+          document.getElementById('settingsName').value = data.parlourName;
+          document.getElementById('settingsPhone').value = data.parlourPhone || '';
+          document.getElementById('headerParlourName').innerText = data.parlourName;
+          document.getElementById('lockParlourTitle').innerText = data.parlourName;
+        }
+      } catch (e) {
+        console.error('Failed to load settings', e);
+      }
     }
 
     async function saveSettings() {
@@ -1330,16 +1366,27 @@
       const parlourPhone = document.getElementById('settingsPhone').value.trim();
       const passcode = document.getElementById('settingsPin').value.trim();
 
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parlourName, parlourPhone, passcode: passcode || undefined })
-      });
-
-      const msg = document.getElementById('settingsMsg');
-      msg.classList.remove('hidden');
-      setTimeout(() => msg.classList.add('hidden'), 3000);
-      loadSettings();
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parlourName, parlourPhone, passcode: passcode || undefined })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const msg = document.getElementById('settingsMsg');
+          msg.innerText = 'Settings saved successfully!';
+          msg.className = 'text-center text-xs text-emerald-600 font-semibold';
+          msg.classList.remove('hidden');
+          setTimeout(() => msg.classList.add('hidden'), 3500);
+          document.getElementById('settingsPin').value = '';
+          loadSettings();
+        } else {
+          alert('Failed to save settings: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        alert('Network error saving settings: ' + err.message);
+      }
     }
 
     // ─────────────────────────────────────────────
