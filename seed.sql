@@ -1,8 +1,8 @@
 -- Seed data for Beauty Parlour
 
 INSERT OR IGNORE INTO settings (key, value) VALUES
-    ('passcode', '1234'),
-    ('parlour_name', 'Glamour Beauty Parlour'),
+    ('passcode', '4050'),
+    ('parlour_name', 'Vrunda Beauty Parlour'),
     ('parlour_phone', '+91 9876543210'),
     ('currency', '₹');
 

@@ -1,7 +1,7 @@
 {
-  "name": "beauty-parlour-manager",
+  "name": "vrunda-beauty-parlour",
   "version": "1.0.0",
-  "description": "Serverless Beauty Parlour Order & Appointment Manager on Cloudflare Workers & D1",
+  "description": "Vrunda Beauty Parlour Order & Appointment Manager on Cloudflare Workers & D1",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {

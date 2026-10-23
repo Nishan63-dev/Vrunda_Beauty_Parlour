@@ -25,7 +25,7 @@ async function getSetting(db: D1Database, key: string, defaultValue: string = ''
 app.post('/api/auth/login', async (c) => {
   const { pin } = await c.req.json<{ pin: string }>();
   const db = c.env.DB;
-  const currentPin = await getSetting(db, 'passcode', '1234');
+  const currentPin = await getSetting(db, 'passcode', '4050');
 
   if (pin === currentPin) {
     return c.json({ success: true, token: 'auth_' + Date.now() });
@@ -263,7 +263,7 @@ app.delete('/api/services/:id', async (c) => {
 // ─────────────────────────────────────────────
 app.get('/api/settings', async (c) => {
   const db = c.env.DB;
-  const parlourName = await getSetting(db, 'parlour_name', 'Glamour Beauty Parlour');
+  const parlourName = await getSetting(db, 'parlour_name', 'Vrunda Beauty Parlour');
   const parlourPhone = await getSetting(db, 'parlour_phone', '+91 9876543210');
   const currency = await getSetting(db, 'currency', '₹');
   return c.json({ parlourName, parlourPhone, currency });

@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Beauty Parlour — Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Vrunda Beauty Parlour — Management</title>
+  <meta name="theme-color" content="#be123c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Vrunda Parlour">
+  <link rel="manifest" href="/manifest.json">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,10 +18,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <style>
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #faf5f6; }
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #faf5f6; -webkit-tap-highlight-color: transparent; }
     .serif { font-family: 'Playfair Display', serif; }
     .rose-gradient { background: linear-gradient(135deg, #e11d48 0%, #be123c 50%, #881337 100%); }
     .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+    /* iOS input auto-zoom prevention */
+    @media (max-width: 640px) {
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+    }
+    /* Safe area padding for iPhones with home indicator */
+    .safe-area-pb {
+      padding-bottom: env(safe-area-inset-bottom, 12px);
+    }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen pb-20 md:pb-8">
@@ -26,22 +42,37 @@
       <div class="w-16 h-16 mx-auto mb-4 rounded-2xl rose-gradient flex items-center justify-center text-white text-2xl shadow-lg shadow-rose-500/30">
         <i class="fa-solid fa-spa"></i>
       </div>
-      <h2 class="text-2xl font-bold text-slate-900 serif" id="lockParlourTitle">Glamour Beauty Parlour</h2>
+      <h2 class="text-2xl font-bold text-slate-900 serif" id="lockParlourTitle">Vrunda Beauty Parlour</h2>
       <p class="text-xs text-rose-600 font-semibold uppercase tracking-wider mt-1">Owner Access Only</p>
 
-      <div class="mt-6">
-        <label class="block text-xs font-semibold text-slate-500 mb-2 uppercase">Enter 4-Digit Security PIN</label>
-        <input type="password" id="pinInput" maxlength="6" autofocus
-          class="w-full text-center text-2xl tracking-[0.5em] font-mono py-3 px-4 rounded-xl border-2 border-rose-200 focus:border-rose-500 focus:outline-none bg-rose-50/50"
+      <div class="mt-5">
+        <label class="block text-xs font-semibold text-slate-500 mb-2 uppercase">Enter Security PIN</label>
+        <input type="password" id="pinInput" maxlength="6" autofocus inputmode="numeric"
+          class="w-full text-center text-2xl tracking-[0.5em] font-mono py-2.5 px-4 rounded-xl border-2 border-rose-200 focus:border-rose-500 focus:outline-none bg-rose-50/50"
           placeholder="••••" onkeyup="if(event.key === 'Enter') handleLogin()">
-        <p id="pinError" class="text-xs text-rose-500 mt-2 font-medium hidden">Incorrect PIN. Try again.</p>
+        <p id="pinError" class="text-xs text-rose-500 mt-1.5 font-medium hidden">Incorrect PIN. Try again.</p>
+      </div>
+
+      <!-- TOUCH KEYPAD FOR EASY ONE-HAND MOBILE ACCESS -->
+      <div class="grid grid-cols-3 gap-2 mt-4 max-w-[240px] mx-auto text-base font-bold text-slate-700">
+        <button type="button" onclick="pressPinDigit('1')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">1</button>
+        <button type="button" onclick="pressPinDigit('2')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">2</button>
+        <button type="button" onclick="pressPinDigit('3')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">3</button>
+        <button type="button" onclick="pressPinDigit('4')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">4</button>
+        <button type="button" onclick="pressPinDigit('5')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">5</button>
+        <button type="button" onclick="pressPinDigit('6')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">6</button>
+        <button type="button" onclick="pressPinDigit('7')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">7</button>
+        <button type="button" onclick="pressPinDigit('8')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">8</button>
+        <button type="button" onclick="pressPinDigit('9')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">9</button>
+        <button type="button" onclick="clearPinInput()" class="h-11 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-500 active:bg-slate-200 active:scale-95 transition">CLR</button>
+        <button type="button" onclick="pressPinDigit('0')" class="h-11 rounded-xl bg-white/80 border border-rose-100 shadow-sm active:bg-rose-100 active:scale-95 transition">0</button>
+        <button type="button" onclick="backspacePinInput()" class="h-11 rounded-xl bg-slate-100 border border-slate-200 text-slate-500 active:bg-slate-200 active:scale-95 transition"><i class="fa-solid fa-delete-left text-xs"></i></button>
       </div>
 
       <button onclick="handleLogin()"
-        class="w-full mt-6 py-3.5 px-4 rounded-xl rose-gradient text-white font-semibold shadow-lg shadow-rose-600/30 hover:opacity-95 transition active:scale-[0.98]">
+        class="w-full mt-5 py-3 px-4 rounded-xl rose-gradient text-white font-semibold shadow-lg shadow-rose-600/30 hover:opacity-95 transition active:scale-[0.98]">
         Unlock Parlour <i class="fa-solid fa-arrow-right ml-2 text-sm"></i>
       </button>
-      <p class="text-[11px] text-slate-400 mt-4">Default PIN is <strong>1234</strong> (can be changed in settings)</p>
     </div>
   </div>
 
@@ -55,7 +86,7 @@
           <i class="fa-solid fa-wand-magic-sparkles"></i>
         </div>
         <div>
-          <h1 class="font-bold text-slate-900 serif text-lg leading-tight" id="headerParlourName">Glamour Beauty Parlour</h1>
+          <h1 class="font-bold text-slate-900 serif text-lg leading-tight" id="headerParlourName">Vrunda Beauty Parlour</h1>
           <p class="text-[11px] font-semibold text-rose-600 uppercase tracking-wider flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Cloudflare D1 Active
           </p>
@@ -386,6 +417,36 @@
 
     </main>
 
+    <!-- MOBILE BOTTOM NAVIGATION BAR (FIXED FOR SMARTPHONE DAY-TO-DAY USE) -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-rose-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 py-1.5 flex items-center justify-around safe-area-pb">
+      <button onclick="switchTab('dashboard')" id="mobNav-dashboard" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-rose-600 font-bold transition">
+        <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
+        <span class="text-[10px]">Home</span>
+      </button>
+      <button onclick="switchTab('appointments')" id="mobNav-appointments" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
+        <i class="fa-solid fa-calendar-check text-lg mb-0.5"></i>
+        <span class="text-[10px]">Orders</span>
+      </button>
+      <button onclick="openBookingModal()" class="flex-1 flex flex-col items-center justify-center -mt-6">
+        <div class="w-12 h-12 rounded-full rose-gradient text-white flex items-center justify-center text-xl shadow-lg shadow-rose-600/40 active:scale-95 transition">
+          <i class="fa-solid fa-plus"></i>
+        </div>
+        <span class="text-[10px] font-bold text-rose-700 mt-0.5">Book</span>
+      </button>
+      <button onclick="switchTab('reports')" id="mobNav-reports" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
+        <i class="fa-solid fa-file-pdf text-lg mb-0.5"></i>
+        <span class="text-[10px]">Reports</span>
+      </button>
+      <button onclick="switchTab('services')" id="mobNav-services" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
+        <i class="fa-solid fa-scissors text-lg mb-0.5"></i>
+        <span class="text-[10px]">Services</span>
+      </button>
+      <button onclick="switchTab('settings')" id="mobNav-settings" class="mob-nav-btn flex-1 flex flex-col items-center justify-center py-1 text-slate-400 font-medium transition">
+        <i class="fa-solid fa-sliders text-lg mb-0.5"></i>
+        <span class="text-[10px]">Settings</span>
+      </button>
+    </nav>
+
   </div>
 
   <!-- MODAL: NEW APPOINTMENT -->
@@ -507,7 +568,7 @@
   <script>
     let currentFilter = 'all';
     let availableServices = [];
-    let parlourTitle = 'Glamour Beauty Parlour';
+    let parlourTitle = 'Vrunda Beauty Parlour';
 
     window.onload = function() {
       if (sessionStorage.getItem('auth_token')) {
@@ -545,6 +606,27 @@
       }
     }
 
+    function pressPinDigit(digit) {
+      const input = document.getElementById('pinInput');
+      if (input.value.length < 6) {
+        input.value += digit;
+        if (input.value.length === 4) {
+          handleLogin();
+        }
+      }
+    }
+
+    function clearPinInput() {
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinError').classList.add('hidden');
+    }
+
+    function backspacePinInput() {
+      const input = document.getElementById('pinInput');
+      input.value = input.value.slice(0, -1);
+      document.getElementById('pinError').classList.add('hidden');
+    }
+
     function handleLogout() {
       sessionStorage.removeItem('auth_token');
       document.getElementById('pinInput').value = '';
@@ -569,6 +651,11 @@
           btn.classList.remove('bg-white', 'text-rose-700', 'shadow-sm');
           btn.classList.add('text-slate-600');
         }
+        const mobBtn = document.getElementById('mobNav-' + t);
+        if (mobBtn) {
+          mobBtn.classList.remove('text-rose-600', 'font-bold');
+          mobBtn.classList.add('text-slate-400', 'font-medium');
+        }
       });
       const target = document.getElementById('tab-' + tabId);
       if (target) target.classList.remove('hidden');
@@ -576,6 +663,11 @@
       if (activeBtn) {
         activeBtn.classList.add('bg-white', 'text-rose-700', 'shadow-sm');
         activeBtn.classList.remove('text-slate-600');
+      }
+      const activeMobBtn = document.getElementById('mobNav-' + tabId);
+      if (activeMobBtn) {
+        activeMobBtn.classList.add('text-rose-600', 'font-bold');
+        activeMobBtn.classList.remove('text-slate-400', 'font-medium');
       }
 
       if (tabId === 'dashboard') loadDashboard();
@@ -628,8 +720,11 @@
               </p>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             ${renderStatusBadge(a.status)}
+            <a href="tel:${a.customer_phone}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs" title="Call Customer">
+              <i class="fa-solid fa-phone"></i>
+            </a>
             <a href="https://wa.me/91${a.customer_phone}?text=${waText}"
               target="_blank" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-sm" title="WhatsApp Reminder">
               <i class="fa-brands fa-whatsapp"></i>
@@ -699,16 +794,19 @@
 
             <!-- ACTION CONTROLS -->
             <div class="flex items-center gap-1.5">
-              <button onclick="updateOrderStatus(${a.id}, 'completed')" title="Mark Completed" class="p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs">
-                <i class="fa-solid fa-check"></i>
-              </button>
+              <a href="tel:${a.customer_phone}" class="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs flex items-center justify-center" title="Call Customer">
+                <i class="fa-solid fa-phone"></i>
+              </a>
+              <a href="https://wa.me/91${a.customer_phone}?text=${waText}"
+                target="_blank" class="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs flex items-center justify-center" title="WhatsApp Message">
+                <i class="fa-brands fa-whatsapp"></i>
+              </a>
               <button onclick="togglePaymentStatus(${a.id}, '${a.payment_status}')" title="Change Payment" class="p-2 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs">
                 <i class="fa-solid fa-receipt"></i>
               </button>
-              <a href="https://wa.me/91${a.customer_phone}?text=${waText}"
-                target="_blank" class="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 text-xs" title="WhatsApp Message">
-                <i class="fa-brands fa-whatsapp"></i>
-              </a>
+              <button onclick="updateOrderStatus(${a.id}, 'completed')" title="Mark Completed" class="p-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs">
+                <i class="fa-solid fa-check"></i>
+              </button>
               <button onclick="deleteAppointment(${a.id})" title="Delete" class="p-2 rounded-lg bg-rose-50 text-rose-500 hover:bg-rose-100 text-xs">
                 <i class="fa-solid fa-trash"></i>
               </button>

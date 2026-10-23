@@ -1,4 +1,4 @@
-# 🌸 Beauty Parlour Order & Appointment Manager
+# 🌸 Vrunda Beauty Parlour — Order & Appointment Manager
 
 A 100% serverless, private management application for beauty parlour owners, built to run **lifelong free** on **Cloudflare Workers** with **Cloudflare D1 (Serverless SQLite)**.
 
@@ -6,7 +6,7 @@ A 100% serverless, private management application for beauty parlour owners, bui
 
 ## ✨ Features
 
-- **🔐 Owner Only Security**: 4-digit PIN lock screen (default PIN: `1234`, changeable in Settings).
+- **🔐 Owner Only Security**: 4-digit PIN lock screen (default PIN: `4050`, changeable in Settings).
 - **📊 Real-time Dashboard**:
   - Today's appointment count and expected earnings.
   - Today's collected revenue (Cash & UPI).
@@ -51,7 +51,7 @@ npm run db:seed:local
 npm run dev
 ```
 
-Open `http://localhost:8787` in your browser. Enter PIN `1234` to unlock!
+Open `http://localhost:8787` in your browser. Enter PIN `4050` to unlock!
 
 ---
 
