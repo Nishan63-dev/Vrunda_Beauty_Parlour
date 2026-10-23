@@ -203,8 +203,10 @@
             <button onclick="setOrderFilter('all')" id="filter-all" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-rose-600 text-white shrink-0 active:scale-95 transition">All</button>
             <button onclick="setOrderFilter('today')" id="filter-today" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Today</button>
             <button onclick="setOrderFilter('upcoming')" id="filter-upcoming" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Upcoming</button>
+            <button onclick="setOrderFilter('partial')" id="filter-partial" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Partial / EMI</button>
+            <button onclick="setOrderFilter('unpaid')" id="filter-unpaid" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
+            <button onclick="setOrderFilter('paid')" id="filter-paid" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Paid</button>
             <button onclick="setOrderFilter('completed')" id="filter-completed" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Completed</button>
-            <button onclick="setOrderFilter('pending_payment')" id="filter-pending_payment" class="order-filter-btn px-3.5 py-1.5 rounded-full font-semibold bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
           </div>
         </div>
 
@@ -361,8 +363,10 @@
                     <th class="py-3 px-3">Customer</th>
                     <th class="py-3 px-3">Phone</th>
                     <th class="py-3 px-3">Services Booked</th>
-                    <th class="py-3 px-3 text-right">Amount</th>
-                    <th class="py-3 px-3 text-center">Payment</th>
+                    <th class="py-3 px-3 text-right">Total Bill</th>
+                    <th class="py-3 px-3 text-right">Paid (EMI)</th>
+                    <th class="py-3 px-3 text-right">Balance Due</th>
+                    <th class="py-3 px-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody id="repTableBody" class="divide-y divide-slate-100 text-xs">
@@ -493,20 +497,47 @@
           </div>
         </div>
 
-        <!-- TOTAL & PAYMENT -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-semibold text-slate-600 mb-1">Total Amount (₹) *</label>
-            <input type="number" id="bTotal" required min="0" class="w-full p-2.5 font-bold text-sm text-rose-700 bg-rose-50/50 border border-rose-200 rounded-xl focus:outline-none focus:border-rose-400">
+        <!-- TOTAL AMOUNT & PAYMENT OPTIONS (ADVANCE / EMI / FULL) -->
+        <div class="space-y-3 p-3.5 bg-rose-50/50 rounded-2xl border border-rose-100">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Total Bill (₹) *</label>
+              <input type="number" id="bTotal" required min="0" oninput="updateAdvanceCalc()"
+                class="w-full p-2.5 font-bold text-sm text-rose-700 bg-white border border-rose-200 rounded-xl focus:outline-none focus:border-rose-400">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Payment Type</label>
+              <select id="bPaymentType" onchange="handlePaymentTypeChange()" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-medium focus:outline-none focus:border-rose-400">
+                <option value="unpaid">⏳ Pay Later (Unpaid)</option>
+                <option value="advance">💳 Advance / EMI Deposit</option>
+                <option value="full">✅ Full Payment Now</option>
+              </select>
+            </div>
           </div>
-          <div>
-            <label class="block font-semibold text-slate-600 mb-1">Payment Status</label>
-            <select id="bPaymentStatus" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400">
-              <option value="pending">⏳ Pending Payment</option>
-              <option value="paid_upi">📱 Paid via UPI / GPay</option>
-              <option value="paid_cash">💵 Paid via Cash</option>
-              <option value="paid_card">💳 Paid via Card</option>
-            </select>
+
+          <!-- DYNAMIC ADVANCE / INSTALLMENT BOX -->
+          <div id="advanceFieldsBox" class="hidden space-y-2.5 pt-2 border-t border-rose-200/60 text-xs">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1" id="advanceAmtLabel">Advance Paid (₹)</label>
+                <input type="number" id="bAdvanceAmount" min="0" value="0" oninput="updateAdvanceCalc()"
+                  placeholder="e.g. 500" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-emerald-700 focus:outline-none focus:border-rose-400">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-700 mb-1">Payment Method</label>
+                <select id="bPaymentMethod" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400 font-medium">
+                  <option value="upi">📱 UPI / GPay</option>
+                  <option value="cash">💵 Cash</option>
+                  <option value="card">💳 Card</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- LIVE DYNAMIC BALANCE CALCULATION -->
+            <div class="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
+              <span class="text-slate-600">Advance Paid: <strong class="text-emerald-700 font-bold" id="bDispAdvance">₹0</strong></span>
+              <span class="text-slate-600">Remaining Balance: <strong class="text-amber-600 font-bold" id="bDispDue">₹0</strong></span>
+            </div>
           </div>
         </div>
 
@@ -519,6 +550,91 @@
           Confirm & Save Appointment
         </button>
       </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EMI / ADVANCE INSTALLMENT PAYMENTS -->
+  <div id="paymentModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm hidden">
+    <div class="glass w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 md:p-6 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto no-scrollbar space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 serif flex items-center gap-2">
+            <i class="fa-solid fa-wallet text-rose-600"></i> Payment & EMI Installments
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5" id="payModalCustomerInfo">Customer info</p>
+        </div>
+        <button onclick="closePaymentModal()" class="text-slate-400 hover:text-slate-600 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <!-- BILL & BALANCE STATUS CARD -->
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
+          <p class="text-[10px] text-slate-500 font-semibold uppercase">Total Bill</p>
+          <p class="text-base font-extrabold text-slate-900 mt-0.5" id="payModalTotal">₹0</p>
+        </div>
+        <div class="bg-emerald-50 p-2.5 rounded-2xl border border-emerald-200">
+          <p class="text-[10px] text-emerald-700 font-semibold uppercase">Paid (EMI)</p>
+          <p class="text-base font-extrabold text-emerald-700 mt-0.5" id="payModalPaid">₹0</p>
+        </div>
+        <div class="bg-amber-50 p-2.5 rounded-2xl border border-amber-200">
+          <p class="text-[10px] text-amber-700 font-semibold uppercase">Balance Due</p>
+          <p class="text-base font-extrabold text-amber-700 mt-0.5" id="payModalDue">₹0</p>
+        </div>
+      </div>
+
+      <!-- RECORD NEW INSTALLMENT / PAYMENT FORM -->
+      <div id="newPaymentSection" class="p-4 bg-rose-50/50 rounded-2xl border border-rose-100 space-y-3 text-xs">
+        <h4 class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i class="fa-solid fa-plus-circle text-rose-600"></i> Record New Payment / EMI
+        </h4>
+
+        <div class="space-y-1.5">
+          <label class="block font-semibold text-slate-600">Installment Amount (₹) *</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="payRecordAmount" min="1" placeholder="Enter amount"
+              class="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-rose-400">
+            <button type="button" onclick="fillFullRemaining()" class="shrink-0 px-3 py-2.5 rounded-xl bg-rose-100 text-rose-700 font-bold hover:bg-rose-200 transition text-xs">
+              Full Due
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Payment Method</label>
+            <select id="payRecordMethod" class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400 font-medium">
+              <option value="upi">📱 UPI / GPay</option>
+              <option value="cash">💵 Cash</option>
+              <option value="card">💳 Card</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Payment Note</label>
+            <input type="text" id="payRecordNote" placeholder="e.g. 2nd Installment"
+              class="w-full p-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400">
+          </div>
+        </div>
+
+        <button type="button" onclick="submitInstallmentPayment()" class="w-full py-2.5 rounded-xl rose-gradient text-white font-semibold shadow-md shadow-rose-500/20 active:scale-95 transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-check"></i> Collect & Save Payment
+        </button>
+      </div>
+
+      <!-- FULLY SETTLED NOTIFICATION -->
+      <div id="settledNotification" class="hidden p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-center text-xs text-emerald-800 font-bold">
+        <i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> This order is completely settled! No outstanding balance.
+      </div>
+
+      <!-- PAYMENT HISTORY LIST -->
+      <div class="space-y-2">
+        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+          <span>Payment History</span>
+          <span class="text-[10px] text-slate-400 font-normal">All recorded installments</span>
+        </h4>
+        <div id="paymentHistoryList" class="space-y-2 max-h-48 overflow-y-auto no-scrollbar">
+          <!-- Dynamic installment rows -->
+        </div>
+      </div>
     </div>
   </div>
 
@@ -778,7 +894,28 @@
       }
 
       container.innerHTML = list.map(a => {
-        const waText = encodeURIComponent('Hello ' + a.customer_name + '! Your order bill of ₹' + a.total_amount + ' at ' + parlourTitle + ' on ' + a.appointment_date + ' is confirmed. Thank you! 💕');
+        const total = Number(a.total_amount) || 0;
+        const paid = Number(a.paid_amount) || 0;
+        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, total - paid);
+
+        let paymentBadgeHtml = '';
+        if (due <= 0 && total > 0) {
+          paymentBadgeHtml = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-600"></i> Paid ₹${paid.toLocaleString('en-IN')}</span>`;
+        } else if (paid > 0) {
+          paymentBadgeHtml = `<span class="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-clock text-amber-600"></i> Adv: ₹${paid.toLocaleString('en-IN')} | Due: ₹${due.toLocaleString('en-IN')}</span>`;
+        } else {
+          paymentBadgeHtml = `<span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-rose-600"></i> Unpaid (Due: ₹${total.toLocaleString('en-IN')})</span>`;
+        }
+
+        let waText = '';
+        if (due <= 0 && total > 0) {
+          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${total.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} is confirmed & fully paid. Thank you! 💕`);
+        } else if (paid > 0) {
+          waText = encodeURIComponent(`Hello ${a.customer_name}! Thank you for your advance payment of ₹${paid.toLocaleString('en-IN')} at ${parlourTitle}. Your remaining balance is ₹${due.toLocaleString('en-IN')} for your order on ${a.appointment_date} at ${a.appointment_time}. See you soon! 💕`);
+        } else {
+          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${total.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} at ${a.appointment_time} is confirmed. See you soon! 💕`);
+        }
+
         return `
         <div class="bg-white p-3.5 rounded-2xl border border-rose-100/90 shadow-sm space-y-2.5">
           <!-- Top Row: Customer Name, Status & Price -->
@@ -786,7 +923,7 @@
             <div>
               <div class="flex items-center gap-1.5 flex-wrap">
                 <h4 class="font-bold text-slate-900 text-base leading-tight">${a.customer_name}</h4>
-                ${renderPaymentBadge(a.payment_status)}
+                ${paymentBadgeHtml}
               </div>
               <p class="text-xs text-slate-500 mt-1 flex items-center gap-2">
                 <span><i class="fa-regular fa-clock text-rose-500 mr-1 text-[11px]"></i>${a.appointment_date} at ${a.appointment_time}</span>
@@ -795,7 +932,8 @@
               </p>
             </div>
             <div class="text-right shrink-0">
-              <span class="text-base font-extrabold text-rose-700">₹${Number(a.total_amount).toLocaleString('en-IN')}</span>
+              <span class="text-base font-extrabold text-slate-900">₹${total.toLocaleString('en-IN')}</span>
+              ${(paid > 0 && due > 0) ? `<p class="text-[10px] font-bold text-amber-600 leading-none mt-0.5">Due: ₹${due.toLocaleString('en-IN')}</p>` : ''}
               <div class="mt-0.5">${renderStatusBadge(a.status)}</div>
             </div>
           </div>
@@ -816,8 +954,8 @@
             <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="py-2 px-1 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 flex items-center justify-center gap-1 active:scale-95 transition">
               <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
             </a>
-            <button onclick="togglePaymentStatus(${a.id}, '${a.payment_status}')" class="py-2 px-1 rounded-xl bg-purple-50 text-purple-700 font-semibold hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-receipt text-xs"></i> Pay
+            <button onclick="openPaymentModal(${a.id})" class="py-2 px-1 rounded-xl bg-purple-50 text-purple-700 font-semibold hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
+              <i class="fa-solid fa-wallet text-xs"></i> Pay/EMI
             </button>
             <button onclick="updateOrderStatus(${a.id}, 'completed')" class="py-2 px-1 rounded-xl bg-rose-50 text-rose-700 font-semibold hover:bg-rose-100 flex items-center justify-center gap-1 active:scale-95 transition">
               <i class="fa-solid fa-check text-xs"></i> Done
@@ -839,10 +977,13 @@
     }
 
     function renderPaymentBadge(pStatus) {
-      if (pStatus === 'paid_cash') return '<span class="bg-emerald-50 text-emerald-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">💵 Cash</span>';
-      if (pStatus === 'paid_upi') return '<span class="bg-purple-50 text-purple-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">📱 UPI</span>';
-      if (pStatus === 'paid_card') return '<span class="bg-indigo-50 text-indigo-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">💳 Card</span>';
-      return '<span class="bg-amber-50 text-amber-600 text-[10px] font-semibold px-2 py-0.5 rounded-full">⏳ Unpaid</span>';
+      if (pStatus === 'paid' || pStatus === 'paid_cash' || pStatus === 'paid_upi' || pStatus === 'paid_card') {
+        return '<span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">Paid</span>';
+      }
+      if (pStatus === 'partial') {
+        return '<span class="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">Partial EMI</span>';
+      }
+      return '<span class="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">Unpaid</span>';
     }
 
     async function updateOrderStatus(id, newStatus) {
@@ -855,15 +996,137 @@
       loadDashboard();
     }
 
-    async function togglePaymentStatus(id, current) {
-      const next = (current === 'pending') ? 'paid_upi' : (current === 'paid_upi' ? 'paid_cash' : 'pending');
-      await fetch('/api/appointments/' + id, {
-        method: 'PATCH',
+    // ─────────────────────────────────────────────
+    // PAYMENT & EMI INSTALLMENTS MODAL LOGIC
+    // ─────────────────────────────────────────────
+    let currentPaymentAppointmentId = null;
+    let currentPaymentAppointment = null;
+
+    async function openPaymentModal(apptId) {
+      currentPaymentAppointmentId = apptId;
+      document.getElementById('paymentModal').classList.remove('hidden');
+      document.getElementById('payRecordAmount').value = '';
+      document.getElementById('payRecordNote').value = '';
+      loadPaymentHistory(apptId);
+    }
+
+    function closePaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
+      currentPaymentAppointmentId = null;
+      currentPaymentAppointment = null;
+    }
+
+    async function loadPaymentHistory(apptId) {
+      try {
+        const res = await fetch('/api/appointments/' + apptId + '/payments');
+        const data = await res.json();
+        currentPaymentAppointment = data;
+
+        const a = data.appointment;
+        const total = Number(data.total || 0);
+        const paid = Number(data.paid || 0);
+        const due = Number(data.balanceDue || 0);
+
+        document.getElementById('payModalCustomerInfo').innerText = `${a.customer_name} • ${a.customer_phone} • ${a.appointment_date} ${a.appointment_time}`;
+        document.getElementById('payModalTotal').innerText = '₹' + total.toLocaleString('en-IN');
+        document.getElementById('payModalPaid').innerText = '₹' + paid.toLocaleString('en-IN');
+        document.getElementById('payModalDue').innerText = '₹' + due.toLocaleString('en-IN');
+
+        const newPaySec = document.getElementById('newPaymentSection');
+        const settledNote = document.getElementById('settledNotification');
+
+        if (due <= 0) {
+          newPaySec.classList.add('hidden');
+          settledNote.classList.remove('hidden');
+        } else {
+          newPaySec.classList.remove('hidden');
+          settledNote.classList.add('hidden');
+          document.getElementById('payRecordAmount').value = due;
+          document.getElementById('payRecordAmount').max = due;
+        }
+
+        renderPaymentHistoryList(data.payments || []);
+      } catch (e) {
+        console.error('Failed to load payments', e);
+      }
+    }
+
+    function fillFullRemaining() {
+      if (currentPaymentAppointment) {
+        document.getElementById('payRecordAmount').value = currentPaymentAppointment.balanceDue;
+      }
+    }
+
+    function renderPaymentHistoryList(payments) {
+      const container = document.getElementById('paymentHistoryList');
+      if (!payments || payments.length === 0) {
+        container.innerHTML = '<p class="text-xs text-slate-400 py-3 text-center">No payment installments recorded yet.</p>';
+        return;
+      }
+      container.innerHTML = payments.map(p => {
+        const methodBadges = {
+          cash: '<span class="bg-emerald-100 text-emerald-800 text-[10px] font-semibold px-2 py-0.5 rounded-full">💵 Cash</span>',
+          upi: '<span class="bg-purple-100 text-purple-800 text-[10px] font-semibold px-2 py-0.5 rounded-full">📱 UPI</span>',
+          card: '<span class="bg-indigo-100 text-indigo-800 text-[10px] font-semibold px-2 py-0.5 rounded-full">💳 Card</span>'
+        };
+        const badge = methodBadges[p.payment_method?.toLowerCase()] || methodBadges.cash;
+        return `
+          <div class="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center justify-between text-xs">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="font-extrabold text-slate-900">+₹${Number(p.amount).toLocaleString('en-IN')}</span>
+                ${badge}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">
+                <span>${p.payment_date || p.created_at || 'Recorded'}</span>
+                ${p.note ? `<span>• <em>${p.note}</em></span>` : ''}
+              </p>
+            </div>
+            <button onclick="deleteInstallment(${p.id})" class="text-slate-300 hover:text-rose-500 p-1.5 transition" title="Delete payment entry">
+              <i class="fa-solid fa-trash-can text-xs"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function submitInstallmentPayment() {
+      if (!currentPaymentAppointmentId) return;
+      const amount = Number(document.getElementById('payRecordAmount').value);
+      const payment_method = document.getElementById('payRecordMethod').value;
+      const note = document.getElementById('payRecordNote').value.trim();
+
+      if (!amount || amount <= 0) {
+        alert('Please enter a valid payment amount.');
+        return;
+      }
+
+      const res = await fetch(`/api/appointments/${currentPaymentAppointmentId}/payments`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payment_status: next })
+        body: JSON.stringify({ amount, payment_method, note })
       });
-      loadAppointments();
-      loadDashboard();
+
+      if (res.ok) {
+        document.getElementById('payRecordAmount').value = '';
+        document.getElementById('payRecordNote').value = '';
+        await loadPaymentHistory(currentPaymentAppointmentId);
+        loadAppointments();
+        loadDashboard();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to record payment');
+      }
+    }
+
+    async function deleteInstallment(paymentId) {
+      if (!confirm('Revert / delete this payment installment?')) return;
+      const res = await fetch('/api/payments/' + paymentId, { method: 'DELETE' });
+      if (res.ok) {
+        await loadPaymentHistory(currentPaymentAppointmentId);
+        loadAppointments();
+        loadDashboard();
+      }
     }
 
     async function deleteAppointment(id) {
@@ -923,14 +1186,61 @@
       let sum = 0;
       checked.forEach(cb => sum += Number(cb.dataset.price || 0));
       document.getElementById('bTotal').value = sum;
+      updateAdvanceCalc();
+    }
+
+    function handlePaymentTypeChange() {
+      const type = document.getElementById('bPaymentType').value;
+      const box = document.getElementById('advanceFieldsBox');
+      const total = Number(document.getElementById('bTotal').value) || 0;
+      const advInput = document.getElementById('bAdvanceAmount');
+      const label = document.getElementById('advanceAmtLabel');
+
+      if (type === 'unpaid') {
+        box.classList.add('hidden');
+        advInput.value = 0;
+      } else if (type === 'full') {
+        box.classList.remove('hidden');
+        label.innerText = 'Amount Paid (₹)';
+        advInput.value = total;
+      } else { // 'advance'
+        box.classList.remove('hidden');
+        label.innerText = 'Advance / EMI Paid (₹)';
+        if (Number(advInput.value) <= 0 || Number(advInput.value) >= total) {
+          advInput.value = (total > 0) ? Math.round(total / 2) : 500;
+        }
+      }
+      updateAdvanceCalc();
+    }
+
+    function updateAdvanceCalc() {
+      const total = Number(document.getElementById('bTotal').value) || 0;
+      const type = document.getElementById('bPaymentType').value;
+      let adv = Number(document.getElementById('bAdvanceAmount').value) || 0;
+
+      if (type === 'full') {
+        adv = total;
+        document.getElementById('bAdvanceAmount').value = total;
+      } else if (type === 'unpaid') {
+        adv = 0;
+      }
+
+      const due = Math.max(0, total - adv);
+      document.getElementById('bDispAdvance').innerText = '₹' + adv.toLocaleString('en-IN');
+      document.getElementById('bDispDue').innerText = '₹' + due.toLocaleString('en-IN');
     }
 
     function openBookingModal() {
       document.getElementById('bookingModal').classList.remove('hidden');
+      updateAdvanceCalc();
     }
     function closeBookingModal() {
       document.getElementById('bookingModal').classList.add('hidden');
       document.getElementById('bookingForm').reset();
+      document.getElementById('bPaymentType').value = 'unpaid';
+      document.getElementById('advanceFieldsBox').classList.add('hidden');
+      document.getElementById('bDispAdvance').innerText = '₹0';
+      document.getElementById('bDispDue').innerText = '₹0';
     }
 
     async function handleCreateBooking(e) {
@@ -940,7 +1250,9 @@
       const appointment_date = document.getElementById('bDate').value;
       const appointment_time = document.getElementById('bTime').value;
       const total_amount = Number(document.getElementById('bTotal').value);
-      const payment_status = document.getElementById('bPaymentStatus').value;
+      const payment_type = document.getElementById('bPaymentType').value;
+      const advance_amount = (payment_type === 'unpaid') ? 0 : Number(document.getElementById('bAdvanceAmount').value || 0);
+      const payment_method = document.getElementById('bPaymentMethod')?.value || 'upi';
       const notes = document.getElementById('bNotes').value.trim();
 
       const checked = document.querySelectorAll('.service-checkbox:checked');
@@ -959,7 +1271,9 @@
           appointment_date,
           appointment_time,
           total_amount,
-          payment_status,
+          advance_amount,
+          payment_method,
+          payment_note: advance_amount >= total_amount ? 'Full payment on booking' : (advance_amount > 0 ? 'Advance booking deposit' : undefined),
           notes,
           services: selectedServices
         })
@@ -1116,21 +1430,28 @@
 
       const tbody = document.getElementById('repTableBody');
       if (!data.appointments || data.appointments.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-xs text-slate-400">No appointments recorded for this period.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-xs text-slate-400">No appointments recorded for this period.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = data.appointments.map((a, i) => `
+      tbody.innerHTML = data.appointments.map((a, i) => {
+        const total = Number(a.total_amount || 0);
+        const paid = Number(a.paid_amount || 0);
+        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, total - paid);
+        return `
         <tr class="hover:bg-rose-50/30 border-b border-slate-100 transition">
           <td class="py-2.5 px-3 font-mono text-slate-400 text-xs">${i + 1}</td>
           <td class="py-2.5 px-3 whitespace-nowrap text-xs font-semibold text-slate-700">${a.appointment_date} <span class="text-slate-400 font-normal">at ${a.appointment_time}</span></td>
           <td class="py-2.5 px-3 text-xs font-bold text-slate-900">${a.customer_name}</td>
           <td class="py-2.5 px-3 text-xs text-slate-500 font-mono">${a.customer_phone}</td>
-          <td class="py-2.5 px-3 text-xs text-slate-600 max-w-[220px] truncate" title="${a.services_list || a.notes || 'General Treatment'}">${a.services_list || a.notes || 'General Treatment'}</td>
-          <td class="py-2.5 px-3 text-xs font-bold text-slate-900 text-right">₹${Number(a.total_amount).toLocaleString('en-IN')}</td>
-          <td class="py-2.5 px-3 text-center whitespace-nowrap">${renderPaymentBadge(a.payment_status)}</td>
+          <td class="py-2.5 px-3 text-xs text-slate-600 max-w-[200px] truncate" title="${a.services_list || a.notes || 'General Treatment'}">${a.services_list || a.notes || 'General Treatment'}</td>
+          <td class="py-2.5 px-3 text-xs font-bold text-slate-900 text-right">₹${total.toLocaleString('en-IN')}</td>
+          <td class="py-2.5 px-3 text-xs font-bold text-emerald-700 text-right">₹${paid.toLocaleString('en-IN')}</td>
+          <td class="py-2.5 px-3 text-xs font-bold ${due > 0 ? 'text-amber-600' : 'text-slate-400'} text-right">₹${due.toLocaleString('en-IN')}</td>
+          <td class="py-2.5 px-3 text-center whitespace-nowrap">${renderStatusBadge(a.status)}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function downloadPdfReport() {
@@ -1244,45 +1565,52 @@
       );
 
       // 4. Appointments Table
-      const tableRows = (data.appointments || []).map((a, i) => [
-        i + 1,
-        `${a.appointment_date}\n${a.appointment_time}`,
-        a.customer_name,
-        a.customer_phone,
-        a.services_list || a.notes || 'General Treatment',
-        `Rs. ${Number(a.total_amount).toLocaleString('en-IN')}`,
-        a.payment_status === 'paid_cash' ? 'Cash' : (a.payment_status === 'paid_upi' ? 'UPI' : (a.payment_status === 'paid_card' ? 'Card' : 'Pending')),
-        a.status.charAt(0).toUpperCase() + a.status.slice(1)
-      ]);
+      const tableRows = (data.appointments || []).map((a, i) => {
+        const total = Number(a.total_amount || 0);
+        const paid = Number(a.paid_amount || 0);
+        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, total - paid);
+        return [
+          i + 1,
+          `${a.appointment_date}\n${a.appointment_time}`,
+          a.customer_name,
+          a.customer_phone,
+          a.services_list || a.notes || 'General Treatment',
+          `Rs. ${total.toLocaleString('en-IN')}`,
+          `Rs. ${paid.toLocaleString('en-IN')}`,
+          `Rs. ${due.toLocaleString('en-IN')}`,
+          a.status.charAt(0).toUpperCase() + a.status.slice(1)
+        ];
+      });
 
       doc.autoTable({
         startY: cardY + 30,
-        head: [['#', 'Date & Time', 'Customer', 'Phone', 'Services Booked', 'Amount', 'Payment', 'Status']],
-        body: tableRows.length > 0 ? tableRows : [['-', '-', 'No appointments found in this range', '-', '-', 'Rs. 0', '-', '-']],
+        head: [['#', 'Date & Time', 'Customer', 'Phone', 'Services Booked', 'Total Bill', 'Paid (EMI)', 'Balance Due', 'Status']],
+        body: tableRows.length > 0 ? tableRows : [['-', '-', 'No appointments found in this range', '-', '-', 'Rs. 0', 'Rs. 0', 'Rs. 0', '-']],
         theme: 'striped',
         headStyles: {
           fillColor: [190, 18, 60],
           textColor: [255, 255, 255],
-          fontSize: 8,
+          fontSize: 7.5,
           fontStyle: 'bold',
           halign: 'left'
         },
         styles: {
-          fontSize: 7.5,
-          cellPadding: 2.5,
+          fontSize: 7,
+          cellPadding: 2,
           textColor: [30, 41, 59],
           valign: 'middle',
           overflow: 'linebreak'
         },
         columnStyles: {
-          0: { cellWidth: 8, halign: 'center' },
-          1: { cellWidth: 24 },
-          2: { cellWidth: 32, fontStyle: 'bold' },
-          3: { cellWidth: 23 },
-          4: { cellWidth: 46 },
-          5: { cellWidth: 20, halign: 'right', fontStyle: 'bold' },
-          6: { cellWidth: 15, halign: 'center' },
-          7: { cellWidth: 14, halign: 'center' }
+          0: { cellWidth: 7, halign: 'center' },
+          1: { cellWidth: 23 },
+          2: { cellWidth: 27, fontStyle: 'bold' },
+          3: { cellWidth: 21 },
+          4: { cellWidth: 38 },
+          5: { cellWidth: 18, halign: 'right', fontStyle: 'bold' },
+          6: { cellWidth: 17, halign: 'right', textColor: [21, 128, 61], fontStyle: 'bold' },
+          7: { cellWidth: 17, halign: 'right', textColor: [180, 83, 9], fontStyle: 'bold' },
+          8: { cellWidth: 14, halign: 'center' }
         },
         alternateRowStyles: {
           fillColor: [255, 245, 247]
