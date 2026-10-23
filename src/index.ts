@@ -51,7 +51,7 @@ async function ensureDbInitialized(db: D1Database) {
       await db.prepare('ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0').run();
     } catch {}
 
-    // 8. Seed Settings if empty
+    // 8. Seed Settings if empty (Default PIN 4050 & Parlour Name)
     try {
       const settingCount = await db.prepare('SELECT COUNT(*) as count FROM settings').first<{ count: number }>();
       if (!settingCount || settingCount.count === 0) {
@@ -62,37 +62,6 @@ async function ensureDbInitialized(db: D1Database) {
       }
     } catch (e: any) {
       console.error('Failed to seed settings', e);
-    }
-
-    // 9. Seed Services if empty
-    try {
-      const serviceCount = await db.prepare('SELECT COUNT(*) as count FROM services WHERE is_active = 1').first<{ count: number }>();
-      if (!serviceCount || serviceCount.count === 0) {
-        const defaultServices: [string, string, number, number][] = [
-          ['Eyebrow & Upper Lip Threading', 'Threading', 100, 15],
-          ['Full Face Threading', 'Threading', 250, 25],
-          ['Basic Hair Cut & Styling', 'Hair', 350, 30],
-          ['Layer Hair Cut', 'Hair', 600, 45],
-          ['Hair Spa with Deep Conditioning', 'Hair', 1200, 60],
-          ['Hair Straightening / Keratin', 'Hair', 3500, 120],
-          ['Fruit Cleanup', 'Skin & Facial', 500, 30],
-          ['Gold Glow Facial', 'Skin & Facial', 1500, 60],
-          ['Diamond Anti-Aging Facial', 'Skin & Facial', 2200, 75],
-          ['Full Arms + Underarms Waxing', 'Waxing', 400, 30],
-          ['Full Legs Waxing', 'Waxing', 500, 35],
-          ['Rica Waxing Package', 'Waxing', 1200, 60],
-          ['Deluxe Manicure & Pedicure', 'Nails & Feet', 900, 50],
-          ['Gel Nail Art & Extensions', 'Nails & Feet', 1500, 60],
-          ['Party Makeup with Hairstyle', 'Bridal & Makeup', 2500, 90],
-          ['Bridal Makeup with Draping', 'Bridal & Makeup', 8000, 180]
-        ];
-
-        for (const s of defaultServices) {
-          await db.prepare('INSERT INTO services (name, category, price, duration_minutes) VALUES (?, ?, ?, ?)').bind(s[0], s[1], s[2], s[3]).run();
-        }
-      }
-    } catch (e: any) {
-      console.error('Failed to seed services', e);
     }
 
     isDbReady = true;
