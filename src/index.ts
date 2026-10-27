@@ -40,16 +40,52 @@ async function ensureDbInitialized(db: D1Database) {
     // 5. Payments Table
     await db.prepare('CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, amount REAL NOT NULL, payment_method TEXT NOT NULL, payment_date TEXT DEFAULT CURRENT_TIMESTAMP, note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)').run();
 
+    // 5B. Multi-Day Bridal Appointment Sessions Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS appointment_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+        session_title TEXT,
+        session_date TEXT NOT NULL,
+        session_time TEXT NOT NULL,
+        services_list TEXT,
+        status TEXT DEFAULT 'confirmed',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // 5C. Cholis & Bridal Wardrobe Table
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS cholis (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        category TEXT DEFAULT 'Bridal',
+        rent_price REAL NOT NULL DEFAULT 0,
+        sale_price REAL DEFAULT 0,
+        photo_data TEXT,
+        status TEXT DEFAULT 'available',
+        notes TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
     // 6. Indexes
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date)').run(); } catch {}
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)').run(); } catch {}
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id)').run(); } catch {}
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id)').run(); } catch {}
     try { await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_services_active_name ON services(name) WHERE is_active = 1').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_date ON appointment_sessions(session_date)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_sessions_appt ON appointment_sessions(appointment_id)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_cholis_category ON cholis(category)').run(); } catch {}
+    try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_cholis_status ON cholis(status)').run(); } catch {}
 
     // 7. Migrations for existing appointments table
     try {
       await db.prepare('ALTER TABLE appointments ADD COLUMN paid_amount REAL DEFAULT 0').run();
+    } catch {}
+    try {
+      await db.prepare('ALTER TABLE appointments ADD COLUMN is_bridal INTEGER DEFAULT 0').run();
     } catch {}
 
     // 8. Seed Settings if empty (Default PIN 4050 & Parlour Name)
@@ -179,7 +215,7 @@ app.get('/api/dashboard', async (c) => {
     WHERE (payment_status = 'pending' OR payment_status = 'partial' OR COALESCE(paid_amount, 0) < total_amount) AND status != 'cancelled'
   `).first<{ count: number; pending_amount: number }>();
 
-  // Today's appointments with payment details
+  // Today's appointments with payment details & bridal sessions
   const todayAppointments = await db.prepare(`
     SELECT 
       a.id,
@@ -193,13 +229,33 @@ app.get('/api/dashboard', async (c) => {
       a.status,
       a.payment_status,
       a.notes,
+      COALESCE(a.is_bridal, 0) as is_bridal,
       COALESCE(GROUP_CONCAT(s.service_name, ', '), '') as services_list
     FROM appointments a
     LEFT JOIN appointment_services s ON a.id = s.appointment_id
-    WHERE a.appointment_date = ? 
+    WHERE a.appointment_date = ? OR a.id IN (SELECT appointment_id FROM appointment_sessions WHERE session_date = ?)
     GROUP BY a.id
     ORDER BY a.appointment_time ASC
-  `).bind(today).all();
+  `).bind(today, today).all();
+
+  const todayList = (todayAppointments.results || []) as any[];
+  if (todayList.length > 0) {
+    const ids = todayList.map((r: any) => r.id);
+    const placeholders = ids.map(() => '?').join(',');
+    try {
+      const { results: allSessions } = await db.prepare(`
+        SELECT * FROM appointment_sessions WHERE appointment_id IN (${placeholders}) ORDER BY session_date ASC, session_time ASC
+      `).bind(...ids).all();
+      const sessionsMap: Record<number, any[]> = {};
+      (allSessions || []).forEach((s: any) => {
+        if (!sessionsMap[s.appointment_id]) sessionsMap[s.appointment_id] = [];
+        sessionsMap[s.appointment_id].push(s);
+      });
+      todayList.forEach((r: any) => {
+        r.sessions = sessionsMap[r.id] || [];
+      });
+    } catch {}
+  }
 
   return c.json({
     today,
@@ -210,7 +266,7 @@ app.get('/api/dashboard', async (c) => {
     monthCount: monthCount?.count ?? 0,
     pendingPaymentsCount: pendingPayments?.count ?? 0,
     pendingPaymentsAmount: pendingPayments?.pending_amount ?? 0,
-    todayAppointments: todayAppointments.results ?? []
+    todayAppointments: todayList
   });
 });
 
@@ -238,6 +294,7 @@ app.get('/api/appointments', async (c) => {
         a.status,
         a.payment_status,
         a.notes,
+        COALESCE(a.is_bridal, 0) as is_bridal,
         COALESCE(GROUP_CONCAT(s.service_name, ', '), '') as services_list
       FROM appointments a
       LEFT JOIN appointment_services s ON a.id = s.appointment_id
@@ -246,14 +303,14 @@ app.get('/api/appointments', async (c) => {
     const params: any[] = [];
 
     if (date) {
-      query += ' AND a.appointment_date = ?';
-      params.push(date);
+      query += ' AND (a.appointment_date = ? OR a.id IN (SELECT appointment_id FROM appointment_sessions WHERE session_date = ?))';
+      params.push(date, date);
     } else if (filter === 'today') {
-      query += ' AND a.appointment_date = ?';
-      params.push(today);
+      query += ' AND (a.appointment_date = ? OR a.id IN (SELECT appointment_id FROM appointment_sessions WHERE session_date = ?))';
+      params.push(today, today);
     } else if (filter === 'upcoming') {
-      query += ' AND a.appointment_date >= ? AND a.status != "completed" AND a.status != "cancelled"';
-      params.push(today);
+      query += ' AND (a.appointment_date >= ? OR a.id IN (SELECT appointment_id FROM appointment_sessions WHERE session_date >= ?)) AND a.status != "completed" AND a.status != "cancelled"';
+      params.push(today, today);
     } else if (filter === 'completed') {
       query += ' AND a.status = "completed"';
     } else if (filter === 'cancelled') {
@@ -281,8 +338,27 @@ app.get('/api/appointments', async (c) => {
 
     const stmt = db.prepare(query);
     const { results } = await stmt.bind(...params).all();
+    const rows = (results || []) as any[];
 
-    return c.json(results || []);
+    if (rows.length > 0) {
+      const ids = rows.map((r: any) => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      try {
+        const { results: allSessions } = await db.prepare(`
+          SELECT * FROM appointment_sessions WHERE appointment_id IN (${placeholders}) ORDER BY session_date ASC, session_time ASC
+        `).bind(...ids).all();
+        const sessionsMap: Record<number, any[]> = {};
+        (allSessions || []).forEach((s: any) => {
+          if (!sessionsMap[s.appointment_id]) sessionsMap[s.appointment_id] = [];
+          sessionsMap[s.appointment_id].push(s);
+        });
+        rows.forEach((r: any) => {
+          r.sessions = sessionsMap[r.id] || [];
+        });
+      } catch {}
+    }
+
+    return c.json(rows);
   } catch (err: any) {
     console.error('Failed to fetch appointments', err);
     return c.json([]);
@@ -318,6 +394,19 @@ app.get('/api/calendar-summary', async (c) => {
       GROUP BY appointment_date
     `).bind(pattern).all();
 
+    // Also include extra session dates from appointment_sessions
+    let sessionRows: any[] = [];
+    try {
+      const sessRes = await db.prepare(`
+        SELECT s.session_date, COUNT(*) as session_count
+        FROM appointment_sessions s
+        JOIN appointments a ON s.appointment_id = a.id
+        WHERE s.session_date LIKE ? AND a.status != 'cancelled' AND s.session_date != a.appointment_date
+        GROUP BY s.session_date
+      `).bind(pattern).all();
+      sessionRows = sessRes.results || [];
+    } catch {}
+
     const summaryMap: Record<string, any> = {};
     (results || []).forEach((row: any) => {
       summaryMap[row.appointment_date] = {
@@ -327,6 +416,21 @@ app.get('/api/calendar-summary', async (c) => {
         total_due: Number(row.total_due || 0),
         cancelled_count: 0
       };
+    });
+
+    (sessionRows || []).forEach((sRow: any) => {
+      const d = sRow.session_date;
+      if (!summaryMap[d]) {
+        summaryMap[d] = {
+          total_orders: Number(sRow.session_count || 0),
+          total_amount: 0,
+          total_paid: 0,
+          total_due: 0,
+          cancelled_count: 0
+        };
+      } else {
+        summaryMap[d].total_orders += Number(sRow.session_count || 0);
+      }
     });
 
     (cancelledRows || []).forEach((row: any) => {
@@ -351,7 +455,7 @@ app.get('/api/calendar-summary', async (c) => {
 });
 
 // ─────────────────────────────────────────────
-// 4. CREATE APPOINTMENT (WITH OPTIONAL ADVANCE / EMI)
+// 4. CREATE APPOINTMENT (WITH OPTIONAL ADVANCE / EMI / BRIDAL SESSIONS)
 // ─────────────────────────────────────────────
 app.post('/api/appointments', async (c) => {
   const db = c.env.DB;
@@ -368,12 +472,20 @@ app.post('/api/appointments', async (c) => {
     status?: string;
     payment_status?: string;
     notes?: string;
+    is_bridal?: boolean | number;
+    sessions?: {
+      session_title: string;
+      session_date: string;
+      session_time: string;
+      services_list?: string;
+    }[];
   }>();
 
   if (!data.customer_name || !data.customer_phone || !data.appointment_date || !data.appointment_time) {
     return c.json({ error: 'Missing required fields' }, 400);
   }
 
+  const is_bridal = data.is_bridal ? 1 : 0;
   const status = data.status || 'confirmed';
   const notes = data.notes || '';
   const total = Number(data.total_amount) || 0;
@@ -391,8 +503,8 @@ app.post('/api/appointments', async (c) => {
   }
 
   const result = await db.prepare(`
-    INSERT INTO appointments (customer_name, customer_phone, appointment_date, appointment_time, total_amount, paid_amount, status, payment_status, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO appointments (customer_name, customer_phone, appointment_date, appointment_time, total_amount, paid_amount, status, payment_status, notes, is_bridal)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
     data.customer_name,
     data.customer_phone,
@@ -402,7 +514,8 @@ app.post('/api/appointments', async (c) => {
     paid_amount,
     status,
     payment_status,
-    notes
+    notes,
+    is_bridal
   ).run();
 
   const appointmentId = result.meta.last_row_id;
@@ -422,10 +535,28 @@ app.post('/api/appointments', async (c) => {
     }
   }
 
+  // Insert multi-day sessions if bridal or multi-session
+  if (data.sessions && Array.isArray(data.sessions) && data.sessions.length > 0 && appointmentId) {
+    for (let i = 0; i < data.sessions.length; i++) {
+      const sess = data.sessions[i];
+      if (!sess.session_date) continue;
+      await db.prepare(`
+        INSERT INTO appointment_sessions (appointment_id, session_title, session_date, session_time, services_list, status)
+        VALUES (?, ?, ?, ?, ?, 'confirmed')
+      `).bind(
+        appointmentId,
+        sess.session_title || `Day ${i + 1}`,
+        sess.session_date,
+        sess.session_time || data.appointment_time,
+        sess.services_list || ''
+      ).run();
+    }
+  }
+
   // Record initial payment installment if advance was paid
   if (appointmentId && paid_amount > 0) {
     const pMethod = data.payment_method || (data.payment_status === 'paid_upi' ? 'upi' : (data.payment_status === 'paid_card' ? 'card' : 'cash'));
-    const pNote = data.payment_note || (paid_amount < total ? 'Advance booking deposit' : 'Full payment on booking');
+    const pNote = data.payment_note || (paid_amount < total ? (is_bridal ? 'Bridal booking advance' : 'Advance booking deposit') : 'Full payment on booking');
     await db.prepare(`
       INSERT INTO payments (appointment_id, amount, payment_method, note, payment_date)
       VALUES (?, ?, ?, ?, datetime('now'))
@@ -631,6 +762,7 @@ app.delete('/api/appointments/:id', async (c) => {
     if (!db) return c.json({ error: 'DB binding is missing' }, 500);
     await db.prepare('DELETE FROM payments WHERE appointment_id = ?').bind(id).run();
     await db.prepare('DELETE FROM appointment_services WHERE appointment_id = ?').bind(id).run();
+    try { await db.prepare('DELETE FROM appointment_sessions WHERE appointment_id = ?').bind(id).run(); } catch {}
     await db.prepare('DELETE FROM appointments WHERE id = ?').bind(id).run();
     return c.json({ success: true });
   } catch (err: any) {
@@ -706,6 +838,127 @@ app.delete('/api/services/:id', async (c) => {
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message || 'Failed to delete service' }, 500);
+  }
+});
+
+// ─────────────────────────────────────────────
+// 7B. CHOLIS & BRIDAL WARDROBE CRUD
+// ─────────────────────────────────────────────
+app.get('/api/cholis', async (c) => {
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const category = c.req.query('category');
+    const status = c.req.query('status');
+    const search = c.req.query('search');
+
+    let query = 'SELECT * FROM cholis WHERE 1=1';
+    const params: any[] = [];
+    if (category && category !== 'all') {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+    if (status && status !== 'all') {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+    if (search) {
+      query += ' AND (name LIKE ? OR notes LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+    query += ' ORDER BY id DESC';
+
+    const { results } = await db.prepare(query).bind(...params).all();
+    return c.json(results || []);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post('/api/cholis', async (c) => {
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const body = await c.req.json<{
+      name: string;
+      category?: string;
+      rent_price: number;
+      sale_price?: number;
+      photo_data?: string;
+      status?: string;
+      notes?: string;
+    }>();
+
+    if (!body.name || body.name.trim() === '') {
+      return c.json({ error: 'Choli name / description is required' }, 400);
+    }
+
+    const name = body.name.trim();
+    const category = body.category || 'Bridal';
+    const rent_price = Number(body.rent_price) || 0;
+    const sale_price = Number(body.sale_price) || 0;
+    const photo_data = body.photo_data || null;
+    const status = body.status || 'available';
+    const notes = body.notes || '';
+
+    const res = await db.prepare(`
+      INSERT INTO cholis (name, category, rent_price, sale_price, photo_data, status, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(name, category, rent_price, sale_price, photo_data, status, notes).run();
+
+    return c.json({ success: true, id: res.meta?.last_row_id }, 201);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.patch('/api/cholis/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+
+    const body = await c.req.json<{
+      name?: string;
+      category?: string;
+      rent_price?: number;
+      sale_price?: number;
+      photo_data?: string;
+      status?: string;
+      notes?: string;
+    }>();
+
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (body.name !== undefined) { updates.push('name = ?'); params.push(body.name.trim()); }
+    if (body.category !== undefined) { updates.push('category = ?'); params.push(body.category); }
+    if (body.rent_price !== undefined) { updates.push('rent_price = ?'); params.push(Number(body.rent_price)); }
+    if (body.sale_price !== undefined) { updates.push('sale_price = ?'); params.push(Number(body.sale_price)); }
+    if (body.photo_data !== undefined) { updates.push('photo_data = ?'); params.push(body.photo_data); }
+    if (body.status !== undefined) { updates.push('status = ?'); params.push(body.status); }
+    if (body.notes !== undefined) { updates.push('notes = ?'); params.push(body.notes); }
+
+    if (updates.length === 0) return c.json({ success: true });
+
+    params.push(id);
+    await db.prepare(`UPDATE cholis SET ${updates.join(', ')} WHERE id = ?`).bind(...params).run();
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.delete('/api/cholis/:id', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    await db.prepare('DELETE FROM cholis WHERE id = ?').bind(id).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
   }
 });
 
