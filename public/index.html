@@ -182,15 +182,29 @@
         </div>
 
         <!-- TODAY'S SCHEDULE -->
-        <div class="bg-white rounded-2xl border border-rose-100 shadow-sm p-4 md:p-6">
-          <div class="flex items-center justify-between mb-4">
+        <div class="bg-white rounded-2xl border border-rose-100 shadow-sm p-4 md:p-6 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
             <div>
-              <h3 class="text-base font-bold text-slate-900 serif">Today's Appointment Schedule</h3>
-              <p class="text-xs text-slate-500" id="currentDateLabel">Loading today's schedule...</p>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold text-slate-900 serif">Appointment Schedule</h3>
+                <span class="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md" id="scheduleDateBadge">Today</span>
+              </div>
+              <p class="text-xs text-slate-500" id="currentDateLabel">Loading schedule...</p>
             </div>
-            <button onclick="openBookingModal()" class="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1">
-              + Quick Book
-            </button>
+            <div class="flex items-center gap-1.5 self-start sm:self-auto">
+              <button onclick="changeDashboardDate(-1)" class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-700 flex items-center justify-center transition active:scale-95" title="Previous Day">
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+              </button>
+              <button onclick="changeDashboardDate(0)" id="dashTodayBtn" class="px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 transition active:scale-95">
+                Today
+              </button>
+              <button onclick="changeDashboardDate(1)" class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-700 flex items-center justify-center transition active:scale-95" title="Next Day">
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+              </button>
+              <button onclick="openBookingModal()" class="ml-1 text-xs font-semibold px-3 py-1.5 rounded-xl rose-gradient text-white shadow-sm flex items-center gap-1 active:scale-95 transition">
+                <i class="fa-solid fa-plus text-[10px]"></i> Quick Book
+              </button>
+            </div>
           </div>
           <div id="todayScheduleList" class="divide-y divide-slate-100">
             <!-- Dynamic Schedule Items -->
@@ -200,35 +214,130 @@
 
       <!-- TAB 2: APPOINTMENTS / ORDERS -->
       <section id="tab-appointments" class="hidden space-y-4">
-        <!-- SEARCH & FILTER BAR -->
-        <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-rose-100 shadow-sm space-y-2.5 w-full min-w-0">
-          <div class="relative w-full">
-            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
-            <input type="text" id="orderSearch" placeholder="Search customer name or phone..."
-              class="w-full text-xs pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400"
-              oninput="loadAppointments()">
-          </div>
-          <div class="w-full min-w-0 overflow-x-auto no-scrollbar py-0.5">
-            <div class="flex items-center gap-1.5 whitespace-nowrap min-w-max">
-              <button onclick="setOrderFilter('all')" id="filter-all" class="order-filter-btn px-3 py-1.5 rounded-full font-bold text-xs bg-rose-600 text-white shrink-0 active:scale-95 transition shadow-sm">All</button>
-              <button onclick="setOrderFilter('today')" id="filter-today" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Today</button>
-              <button onclick="setOrderFilter('upcoming')" id="filter-upcoming" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Upcoming</button>
-              <button onclick="setOrderFilter('partial')" id="filter-partial" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Partial / EMI</button>
-              <button onclick="setOrderFilter('unpaid')" id="filter-unpaid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
-              <button onclick="setOrderFilter('paid')" id="filter-paid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Paid</button>
-              <button onclick="setOrderFilter('completed')" id="filter-completed" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Completed</button>
+        
+        <!-- TOP VIEW SWITCHER: ORDERS LIST vs DATE CALENDAR -->
+        <div class="grid grid-cols-2 gap-1.5 p-1 bg-rose-100/70 rounded-2xl text-xs font-semibold w-full">
+          <button type="button" onclick="switchOrdersSubView('list')" id="ordersSubViewBtn-list" class="py-2.5 px-3 rounded-xl transition bg-white text-rose-700 shadow-sm flex items-center justify-center gap-1.5 active:scale-95">
+            <i class="fa-solid fa-list-ul"></i> Orders List
+          </button>
+          <button type="button" onclick="switchOrdersSubView('calendar')" id="ordersSubViewBtn-calendar" class="py-2.5 px-3 rounded-xl transition text-slate-600 hover:text-rose-700 flex items-center justify-center gap-1.5 active:scale-95">
+            <i class="fa-regular fa-calendar-days text-rose-600"></i> Date Calendar
+          </button>
+        </div>
+
+        <!-- SUB-VIEW 1: ORDERS LIST (SEARCH, FILTERS, LIST, PAGINATION) -->
+        <div id="ordersListView" class="space-y-4 w-full min-w-0">
+          <!-- SEARCH & FILTER BAR -->
+          <div class="bg-white p-3 sm:p-3.5 rounded-2xl border border-rose-100 shadow-sm space-y-2.5 w-full min-w-0">
+            <div class="relative w-full">
+              <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-xs"></i>
+              <input type="text" id="orderSearch" placeholder="Search customer name or phone..."
+                class="w-full text-xs pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400"
+                oninput="loadAppointments()">
+            </div>
+            <div class="w-full min-w-0 overflow-x-auto no-scrollbar py-0.5">
+              <div class="flex items-center gap-1.5 whitespace-nowrap min-w-max">
+                <button onclick="setOrderFilter('all')" id="filter-all" class="order-filter-btn px-3 py-1.5 rounded-full font-bold text-xs bg-rose-600 text-white shrink-0 active:scale-95 transition shadow-sm">All</button>
+                <button onclick="setOrderFilter('today')" id="filter-today" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Today</button>
+                <button onclick="setOrderFilter('upcoming')" id="filter-upcoming" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Upcoming</button>
+                <button onclick="setOrderFilter('partial')" id="filter-partial" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Partial / EMI</button>
+                <button onclick="setOrderFilter('unpaid')" id="filter-unpaid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Unpaid</button>
+                <button onclick="setOrderFilter('paid')" id="filter-paid" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Paid</button>
+                <button onclick="setOrderFilter('completed')" id="filter-completed" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Completed</button>
+                <button onclick="setOrderFilter('cancelled')" id="filter-cancelled" class="order-filter-btn px-3 py-1.5 rounded-full font-semibold text-xs bg-slate-100 text-slate-600 shrink-0 active:scale-95 transition">Cancelled</button>
+              </div>
             </div>
           </div>
+
+          <!-- ORDERS LIST -->
+          <div id="appointmentsList" class="space-y-3 w-full min-w-0">
+            <!-- Dynamic Orders -->
+          </div>
+
+          <!-- PAGINATION CONTROLS -->
+          <div id="appointmentsPagination" class="w-full min-w-0 hidden">
+            <!-- Dynamic Pagination -->
+          </div>
         </div>
 
-        <!-- ORDERS LIST -->
-        <div id="appointmentsList" class="space-y-3 w-full min-w-0">
-          <!-- Dynamic Orders -->
-        </div>
+        <!-- SUB-VIEW 2: DATE CALENDAR VIEW -->
+        <div id="ordersCalendarView" class="hidden space-y-4 w-full min-w-0">
+          
+          <!-- CALENDAR CARD -->
+          <div class="bg-white rounded-2xl border border-rose-100 shadow-sm p-3.5 sm:p-5 space-y-3 w-full min-w-0">
+            
+            <!-- MONTH HEADER -->
+            <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <button onclick="changeCalendarMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-700 flex items-center justify-center transition active:scale-95" title="Previous Month">
+                  <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <h3 class="font-bold text-slate-900 serif text-sm sm:text-base truncate" id="calMonthTitle">October 2026</h3>
+                <button onclick="changeCalendarMonth(1)" class="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-rose-50 hover:text-rose-700 flex items-center justify-center transition active:scale-95" title="Next Month">
+                  <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+              </div>
 
-        <!-- PAGINATION CONTROLS -->
-        <div id="appointmentsPagination" class="w-full min-w-0 hidden">
-          <!-- Dynamic Pagination -->
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="jumpToToday()" class="px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-100 transition active:scale-95">
+                  Today
+                </button>
+                <input type="month" id="calDirectMonthPicker" onchange="onDirectMonthPick(this.value)" class="text-xs p-1.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-rose-400">
+              </div>
+            </div>
+
+            <!-- WEEKDAY HEADER (7 COLS) -->
+            <div class="grid grid-cols-7 gap-1 text-center font-bold text-[10px] sm:text-xs text-slate-400 uppercase py-1">
+              <div>Mon</div>
+              <div>Tue</div>
+              <div>Wed</div>
+              <div>Thu</div>
+              <div>Fri</div>
+              <div>Sat</div>
+              <div class="text-rose-500">Sun</div>
+            </div>
+
+            <!-- DAYS GRID (7 COLS) -->
+            <div id="calendarDaysGrid" class="grid grid-cols-7 gap-1 sm:gap-1.5 text-xs">
+              <!-- Dynamically populated day cells -->
+            </div>
+
+            <!-- CALENDAR LEGEND -->
+            <div class="flex items-center justify-center gap-4 pt-2 border-t border-slate-100 text-[10px] text-slate-500 font-medium">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Has Bookings</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full border-2 border-rose-500"></span> Today</span>
+              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded bg-rose-600"></span> Selected</span>
+            </div>
+          </div>
+
+          <!-- SELECTED DATE APPOINTMENTS PANEL -->
+          <div class="bg-white rounded-2xl border border-rose-100 shadow-sm p-4 space-y-3.5 w-full min-w-0">
+            <!-- DATE HEADER & SUMMARY CHIPS -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-100 pb-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h4 class="font-bold text-slate-900 serif text-sm sm:text-base" id="calSelectedDateTitle">Bookings for Selected Date</h4>
+                  <span id="calSelectedDateTag" class="text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">Selected</span>
+                </div>
+                <!-- METRIC BADGES -->
+                <div class="flex items-center gap-2 flex-wrap mt-1 text-[11px] font-semibold text-slate-600" id="calDateMetricsBar">
+                  <span class="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100" id="calDispOrderCount">0 Orders</span>
+                  <span>Total: <strong class="text-slate-900" id="calDispTotalAmt">₹0</strong></span>
+                  <span>Paid: <strong class="text-emerald-700" id="calDispPaidAmt">₹0</strong></span>
+                  <span>Due: <strong class="text-amber-600" id="calDispDueAmt">₹0</strong></span>
+                </div>
+              </div>
+              <button onclick="openBookingForSelectedDate()" class="self-start sm:self-auto py-2 px-3.5 rounded-xl rose-gradient text-white font-semibold text-xs shadow-sm flex items-center gap-1.5 active:scale-95 transition">
+                <i class="fa-solid fa-plus text-[11px]"></i> Book for this Date
+              </button>
+            </div>
+
+            <!-- APPOINTMENTS LIST FOR SELECTED DATE -->
+            <div id="calendarDateAppointmentsList" class="space-y-3 w-full min-w-0">
+              <!-- Dynamically populated date order cards -->
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -562,9 +671,14 @@
           <textarea id="bNotes" rows="2" placeholder="e.g., Sensitive skin, needs hair wash..." class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-rose-400"></textarea>
         </div>
 
-        <button type="submit" class="w-full py-3 rounded-xl rose-gradient text-white font-semibold shadow-md shadow-rose-500/20 active:scale-[0.99] transition">
-          Confirm & Save Appointment
-        </button>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button type="button" onclick="closeBookingModal()" class="py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition active:scale-95">
+            Cancel
+          </button>
+          <button type="submit" id="saveBookingSubmitBtn" class="py-3 rounded-xl rose-gradient text-white font-semibold text-xs shadow-md shadow-rose-500/20 active:scale-[0.99] transition">
+            Confirm & Save
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -692,9 +806,14 @@
           </div>
         </div>
 
-        <button type="submit" class="w-full py-2.5 mt-2 rounded-xl rose-gradient text-white font-semibold shadow-md shadow-rose-500/20">
-          Add Service to Menu
-        </button>
+        <div class="grid grid-cols-2 gap-2 pt-2">
+          <button type="button" onclick="closeServiceModal()" class="py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-xs hover:bg-slate-50 transition active:scale-95">
+            Cancel
+          </button>
+          <button type="submit" id="saveServiceSubmitBtn" class="py-2.5 rounded-xl rose-gradient text-white font-semibold text-xs shadow-md shadow-rose-500/20 active:scale-95 transition">
+            Add to Menu
+          </button>
+        </div>
       </form>
     </div>
   </div>
@@ -775,6 +894,8 @@
       loadServices();
       loadAppointments();
       initReportPickers();
+      loadCalendarSummary();
+      loadCalendarDateOrders(selectedCalendarDate);
     }
 
     function switchTab(tabId) {
@@ -806,7 +927,14 @@
       }
 
       if (tabId === 'dashboard') loadDashboard();
-      if (tabId === 'appointments') loadAppointments();
+      if (tabId === 'appointments') {
+        if (ordersSubView === 'calendar') {
+          loadCalendarSummary();
+          loadCalendarDateOrders(selectedCalendarDate);
+        } else {
+          loadAppointments();
+        }
+      }
       if (tabId === 'reports') loadReportData();
       if (tabId === 'services') loadServices();
     }
@@ -832,41 +960,216 @@
       }
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      if (!str) return '';
+      return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    let dashboardCurrentDate = new Date().toISOString().slice(0, 10);
+
+    function changeDashboardDate(delta) {
+      const [y, m, d] = dashboardCurrentDate.split('-').map(Number);
+      const curr = new Date(y, m - 1, d);
+      if (delta === 0) {
+        dashboardCurrentDate = new Date().toISOString().slice(0, 10);
+      } else {
+        curr.setDate(curr.getDate() + delta);
+        dashboardCurrentDate = curr.toISOString().slice(0, 10);
+      }
+      loadDashboardScheduleForDate(dashboardCurrentDate);
+    }
+
+    async function loadDashboardScheduleForDate(dateStr) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const badge = document.getElementById('scheduleDateBadge');
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      
+      if (badge) {
+        if (dateStr === todayStr) {
+          badge.innerText = 'Today';
+          badge.className = 'text-[10px] font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md';
+        } else {
+          badge.innerText = `${d}/${m}`;
+          badge.className = 'text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md';
+        }
+      }
+
+      const label = document.getElementById('currentDateLabel');
+      if (label) {
+        label.innerText = dateObj.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      }
+
+      try {
+        const res = await fetch('/api/appointments?date=' + dateStr);
+        const list = await res.json();
+        renderTodaySchedule(list);
+      } catch (e) {
+        console.error('Failed to load schedule for date', e);
+      }
+    }
+
     function renderTodaySchedule(list) {
       const container = document.getElementById('todayScheduleList');
       if (!Array.isArray(list) || list.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">No appointments scheduled for today yet. Tap <strong>+ Quick Book</strong> to add one!</p>';
+        container.innerHTML = '<p class="text-xs text-slate-400 py-6 text-center">No appointments scheduled for this date. Tap <strong>+ Quick Book</strong> to add one!</p>';
         return;
       }
       container.innerHTML = list.map(a => {
-        const waText = encodeURIComponent('Hello ' + a.customer_name + '! Your appointment at ' + parlourTitle + ' is scheduled for today at ' + a.appointment_time + '. See you soon! 💕');
+        const waText = encodeURIComponent('Hello ' + a.customer_name + '! Your appointment at ' + parlourTitle + ' is scheduled for ' + a.appointment_date + ' at ' + a.appointment_time + '. See you soon! 💕');
+        const isCancelled = a.status === 'cancelled';
         return `
-        <div class="py-3 flex items-center justify-between gap-2 border-b border-slate-100 last:border-b-0 w-full min-w-0">
+        <div class="py-2.5 flex items-center justify-between gap-2 border-b border-slate-100 last:border-b-0 w-full min-w-0 ${isCancelled ? 'opacity-60' : ''}">
           <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="text-[11px] font-mono font-bold text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100 shrink-0">
+            <span class="text-[11px] font-mono font-bold ${isCancelled ? 'text-slate-500 bg-slate-100' : 'text-rose-700 bg-rose-50'} px-2 py-1 rounded-lg border border-rose-100 shrink-0">
               ${a.appointment_time}
             </span>
             <div class="min-w-0 flex-1 truncate">
-              <p class="font-bold text-slate-900 text-xs sm:text-sm leading-tight truncate">${a.customer_name}</p>
-              <p class="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
-                <span>${a.customer_phone}</span>
+              <p class="font-bold text-slate-900 text-xs sm:text-sm leading-tight truncate ${isCancelled ? 'line-through text-slate-400' : ''}">${escapeHtml(a.customer_name)}</p>
+              <p class="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+                <span class="font-mono">${escapeHtml(a.customer_phone)}</span>
                 <span>•</span>
                 <span class="font-bold text-slate-800">₹${Number(a.total_amount).toLocaleString('en-IN')}</span>
               </p>
             </div>
           </div>
-          <div class="flex items-center gap-1.5 shrink-0">
+          <div class="flex items-center gap-1 shrink-0">
             ${renderStatusBadge(a.status)}
-            <a href="tel:${a.customer_phone}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs active:scale-95 transition" title="Call">
-              <i class="fa-solid fa-phone text-[10px]"></i>
+            <a href="tel:${escapeHtml(a.customer_phone)}" class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-xs active:scale-95 transition" title="Call">
+              <i class="fa-solid fa-phone text-[11px]"></i>
             </a>
-            <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-xs active:scale-95 transition" title="WhatsApp">
-              <i class="fa-brands fa-whatsapp text-xs"></i>
+            <a href="https://wa.me/91${escapeHtml(a.customer_phone)}?text=${waText}" target="_blank" class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-xs active:scale-95 transition" title="WhatsApp">
+              <i class="fa-brands fa-whatsapp text-sm"></i>
             </a>
+            ${!isCancelled ? `
+            <button onclick="confirmCancelAppointment(${a.id}, '${escapeAttr(a.customer_name)}')" class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center text-xs active:scale-95 transition" title="Cancel Booking">
+              <i class="fa-solid fa-ban text-[10px]"></i>
+            </button>` : ''}
           </div>
         </div>
       `;
       }).join('');
+    }
+
+    // ─────────────────────────────────────────────
+    // COMMON ORDER CARD HTML GENERATOR
+    // ─────────────────────────────────────────────
+    function generateOrderCardHtml(a) {
+      const totalAmt = Number(a.total_amount) || 0;
+      const paid = Number(a.paid_amount) || 0;
+      const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, totalAmt - paid);
+      const isCancelled = (a.status === 'cancelled');
+      const isCompleted = (a.status === 'completed');
+
+      let paymentBadgeHtml = '';
+      if (isCancelled) {
+        paymentBadgeHtml = `<span class="bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">Cancelled</span>`;
+      } else if (due <= 0 && totalAmt > 0) {
+        paymentBadgeHtml = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-check text-emerald-600"></i> Paid ₹${paid.toLocaleString('en-IN')}</span>`;
+      } else if (paid > 0) {
+        paymentBadgeHtml = `<span class="bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-clock text-amber-600"></i> Adv: ₹${paid.toLocaleString('en-IN')} | Due: ₹${due.toLocaleString('en-IN')}</span>`;
+      } else {
+        paymentBadgeHtml = `<span class="bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-exclamation text-rose-600"></i> Unpaid</span>`;
+      }
+
+      const safeCustomerName = escapeHtml(a.customer_name);
+      const safePhone = escapeHtml(a.customer_phone);
+
+      let waText = '';
+      if (isCancelled) {
+        waText = encodeURIComponent(`Hello ${a.customer_name}! Your appointment at ${parlourTitle} has been cancelled. Contact us if you need to reschedule! 💕`);
+      } else if (due <= 0 && totalAmt > 0) {
+        waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} is confirmed & fully paid. Thank you! 💕`);
+      } else if (paid > 0) {
+        waText = encodeURIComponent(`Hello ${a.customer_name}! Thank you for your advance payment of ₹${paid.toLocaleString('en-IN')} at ${parlourTitle}. Your remaining balance is ₹${due.toLocaleString('en-IN')} for your order on ${a.appointment_date} at ${a.appointment_time}. See you soon! 💕`);
+      } else {
+        waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} at ${a.appointment_time} is confirmed. See you soon! 💕`);
+      }
+
+      return `
+      <div class="bg-white rounded-2xl border ${isCancelled ? 'border-slate-200 opacity-80' : 'border-rose-100/90'} shadow-sm p-3.5 space-y-2.5 w-full min-w-0">
+        <!-- Top Row: Customer Name & Amount / Status -->
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <h4 class="font-extrabold text-slate-900 text-sm sm:text-base leading-tight truncate ${isCancelled ? 'line-through text-slate-400' : ''}">${safeCustomerName}</h4>
+            <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+              ${paymentBadgeHtml}
+              ${renderStatusBadge(a.status)}
+              ${!isCancelled && !isCompleted ? `
+              <button onclick="confirmCancelAppointment(${a.id}, '${escapeAttr(a.customer_name)}')" class="text-[10px] text-rose-600 bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded-full border border-rose-200 font-bold transition flex items-center gap-1 active:scale-95" title="Cancel this booking">
+                <i class="fa-solid fa-ban text-[9px]"></i> Cancel
+              </button>` : ''}
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <span class="text-base sm:text-lg font-extrabold ${isCancelled ? 'text-slate-400 line-through' : 'text-slate-900'}">₹${totalAmt.toLocaleString('en-IN')}</span>
+            ${(!isCancelled && paid > 0 && due > 0) ? `<p class="text-[10px] sm:text-[11px] font-bold text-amber-600 leading-tight">Due: ₹${due.toLocaleString('en-IN')}</p>` : ''}
+          </div>
+        </div>
+
+        <!-- Meta Info: Clean Date/Time & Phone Badges -->
+        <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
+            <i class="fa-regular fa-clock text-rose-500 text-xs shrink-0"></i>
+            <span class="truncate font-medium text-[11px]">${a.appointment_date} <strong class="font-bold text-slate-900">${a.appointment_time}</strong></span>
+          </div>
+          <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
+            <i class="fa-solid fa-phone text-slate-400 text-[10px] shrink-0"></i>
+            <span class="truncate font-mono font-semibold text-[11px] text-slate-800">${safePhone}</span>
+          </div>
+        </div>
+
+        <!-- Services / Notes (if any) -->
+        ${(a.services_list || a.notes) ? `
+        <div class="bg-rose-50/60 border border-rose-100/80 p-2.5 rounded-xl text-xs text-slate-700 flex items-start gap-1.5">
+          <i class="fa-solid fa-sparkles text-rose-600 text-[10px] mt-0.5 shrink-0"></i>
+          <div class="min-w-0 flex-1 text-[11px] leading-tight truncate">
+            <span class="font-bold text-rose-900">Services:</span> ${escapeHtml(a.services_list || a.notes)}
+          </div>
+        </div>` : ''}
+
+        <!-- 4 Action Buttons -->
+        <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100 text-xs font-bold">
+          <a href="tel:${safePhone}" class="h-9 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-1 active:scale-95 transition">
+            <i class="fa-solid fa-phone text-[11px]"></i>
+            <span class="text-[11px]">Call</span>
+          </a>
+          <a href="https://wa.me/91${safePhone}?text=${waText}" target="_blank" class="h-9 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1 active:scale-95 transition">
+            <i class="fa-brands fa-whatsapp text-sm"></i>
+            <span class="text-[11px]">Chat</span>
+          </a>
+          ${isCancelled ? `
+          <button onclick="updateOrderStatus(${a.id}, 'confirmed')" class="h-9 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 flex items-center justify-center gap-1 active:scale-95 transition" title="Restore to confirmed">
+            <i class="fa-solid fa-rotate-left text-[11px]"></i>
+            <span class="text-[11px]">Reopen</span>
+          </button>
+          <button onclick="deleteAppointment(${a.id})" class="h-9 rounded-xl bg-slate-100 text-rose-600 hover:bg-rose-50 flex items-center justify-center gap-1 active:scale-95 transition" title="Delete permanently">
+            <i class="fa-solid fa-trash-can text-[11px]"></i>
+            <span class="text-[11px]">Delete</span>
+          </button>
+          ` : `
+          <button onclick="openPaymentModal(${a.id})" class="h-9 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
+            <i class="fa-solid fa-wallet text-[11px]"></i>
+            <span class="text-[11px]">Pay</span>
+          </button>
+          <button onclick="updateOrderStatus(${a.id}, '${isCompleted ? 'confirmed' : 'completed'}')" class="h-9 rounded-xl ${isCompleted ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'} flex items-center justify-center gap-1 active:scale-95 transition">
+            <i class="fa-solid ${isCompleted ? 'fa-rotate-left' : 'fa-check'} text-[11px]"></i>
+            <span class="text-[11px]">${isCompleted ? 'Undo' : 'Done'}</span>
+          </button>
+          `}
+        </div>
+      </div>
+      `;
     }
 
     let allAppointments = [];
@@ -933,89 +1236,7 @@
       const endIndex = Math.min(startIndex + ORDERS_PAGE_SIZE, total);
       const pageList = allAppointments.slice(startIndex, endIndex);
 
-      container.innerHTML = pageList.map(a => {
-        const totalAmt = Number(a.total_amount) || 0;
-        const paid = Number(a.paid_amount) || 0;
-        const due = (a.due_amount !== undefined) ? Number(a.due_amount) : Math.max(0, totalAmt - paid);
-
-        let paymentBadgeHtml = '';
-        if (due <= 0 && totalAmt > 0) {
-          paymentBadgeHtml = `<span class="bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-check text-emerald-600"></i> Paid ₹${paid.toLocaleString('en-IN')}</span>`;
-        } else if (paid > 0) {
-          paymentBadgeHtml = `<span class="bg-amber-50 text-amber-800 border border-amber-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-clock text-amber-600"></i> Adv: ₹${paid.toLocaleString('en-IN')} | Due: ₹${due.toLocaleString('en-IN')}</span>`;
-        } else {
-          paymentBadgeHtml = `<span class="bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap"><i class="fa-solid fa-circle-exclamation text-rose-600"></i> Unpaid</span>`;
-        }
-
-        let waText = '';
-        if (due <= 0 && totalAmt > 0) {
-          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} is confirmed & fully paid. Thank you! 💕`);
-        } else if (paid > 0) {
-          waText = encodeURIComponent(`Hello ${a.customer_name}! Thank you for your advance payment of ₹${paid.toLocaleString('en-IN')} at ${parlourTitle}. Your remaining balance is ₹${due.toLocaleString('en-IN')} for your order on ${a.appointment_date} at ${a.appointment_time}. See you soon! 💕`);
-        } else {
-          waText = encodeURIComponent(`Hello ${a.customer_name}! Your booking of ₹${totalAmt.toLocaleString('en-IN')} at ${parlourTitle} on ${a.appointment_date} at ${a.appointment_time} is confirmed. See you soon! 💕`);
-        }
-
-        return `
-        <div class="bg-white rounded-2xl border border-rose-100/90 shadow-sm p-3.5 space-y-2.5 w-full min-w-0">
-          <!-- Top Row: Customer Name & Amount / Status -->
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <h4 class="font-extrabold text-slate-900 text-sm sm:text-base leading-tight truncate">${a.customer_name}</h4>
-              <div class="mt-1 flex items-center gap-1.5 flex-wrap">
-                ${paymentBadgeHtml}
-                ${renderStatusBadge(a.status)}
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <span class="text-base sm:text-lg font-extrabold text-slate-900">₹${totalAmt.toLocaleString('en-IN')}</span>
-              ${(paid > 0 && due > 0) ? `<p class="text-[10px] sm:text-[11px] font-bold text-amber-600 leading-tight">Due: ₹${due.toLocaleString('en-IN')}</p>` : ''}
-            </div>
-          </div>
-
-          <!-- Meta Info: Clean Date/Time & Phone Badges -->
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
-              <i class="fa-regular fa-clock text-rose-500 text-xs shrink-0"></i>
-              <span class="truncate font-medium text-[11px]">${a.appointment_date} <strong class="font-bold text-slate-900">${a.appointment_time}</strong></span>
-            </div>
-            <div class="bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 text-slate-700 min-w-0">
-              <i class="fa-solid fa-phone text-slate-400 text-[10px] shrink-0"></i>
-              <span class="truncate font-mono font-semibold text-[11px] text-slate-800">${a.customer_phone}</span>
-            </div>
-          </div>
-
-          <!-- Services / Notes (if any) -->
-          ${(a.services_list || a.notes) ? `
-          <div class="bg-rose-50/60 border border-rose-100/80 p-2.5 rounded-xl text-xs text-slate-700 flex items-start gap-1.5">
-            <i class="fa-solid fa-sparkles text-rose-600 text-[10px] mt-0.5 shrink-0"></i>
-            <div class="min-w-0 flex-1 text-[11px] leading-tight truncate">
-              <span class="font-bold text-rose-900">Services:</span> ${a.services_list || a.notes}
-            </div>
-          </div>` : ''}
-
-          <!-- 4 Action Buttons -->
-          <div class="grid grid-cols-4 gap-1.5 pt-1 border-t border-slate-100 text-xs font-bold">
-            <a href="tel:${a.customer_phone}" class="h-9 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-phone text-[11px]"></i>
-              <span class="text-[11px]">Call</span>
-            </a>
-            <a href="https://wa.me/91${a.customer_phone}?text=${waText}" target="_blank" class="h-9 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-brands fa-whatsapp text-sm"></i>
-              <span class="text-[11px]">Chat</span>
-            </a>
-            <button onclick="openPaymentModal(${a.id})" class="h-9 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-wallet text-[11px]"></i>
-              <span class="text-[11px]">Pay</span>
-            </button>
-            <button onclick="updateOrderStatus(${a.id}, 'completed')" class="h-9 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 flex items-center justify-center gap-1 active:scale-95 transition">
-              <i class="fa-solid fa-check text-[11px]"></i>
-              <span class="text-[11px]">Done</span>
-            </button>
-          </div>
-        </div>
-      `;
-      }).join('');
+      container.innerHTML = pageList.map(a => generateOrderCardHtml(a)).join('');
 
       // Render Pagination Controls
       if (paginationContainer) {
@@ -1071,6 +1292,12 @@
       return '<span class="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-semibold px-2 py-0.5 rounded-full">Unpaid</span>';
     }
 
+    function confirmCancelAppointment(id, name) {
+      if (confirm(`Are you sure you want to cancel the appointment for "${name}"?`)) {
+        updateOrderStatus(id, 'cancelled');
+      }
+    }
+
     async function updateOrderStatus(id, newStatus) {
       await fetch('/api/appointments/' + id, {
         method: 'PATCH',
@@ -1079,6 +1306,232 @@
       });
       loadAppointments();
       loadDashboard();
+      if (typeof loadCalendarSummary === 'function') loadCalendarSummary();
+      if (typeof loadCalendarDateOrders === 'function') loadCalendarDateOrders();
+    }
+
+    async function deleteAppointment(id) {
+      if (!confirm('Permanently delete this order record? This cannot be undone.')) return;
+      await fetch('/api/appointments/' + id, { method: 'DELETE' });
+      loadAppointments();
+      loadDashboard();
+      if (typeof loadCalendarSummary === 'function') loadCalendarSummary();
+      if (typeof loadCalendarDateOrders === 'function') loadCalendarDateOrders();
+    }
+
+    // ─────────────────────────────────────────────
+    // DATE-WISE CALENDAR LOGIC
+    // ─────────────────────────────────────────────
+    let currentCalendarMonth = new Date().toISOString().slice(0, 7);
+    let selectedCalendarDate = new Date().toISOString().slice(0, 10);
+    let calendarSummaryData = {};
+    let ordersSubView = 'list';
+
+    function switchOrdersSubView(view) {
+      ordersSubView = view;
+      const listBtn = document.getElementById('ordersSubViewBtn-list');
+      const calBtn = document.getElementById('ordersSubViewBtn-calendar');
+      const listView = document.getElementById('ordersListView');
+      const calView = document.getElementById('ordersCalendarView');
+
+      if (view === 'calendar') {
+        if (listBtn) listBtn.className = 'py-2.5 px-3 rounded-xl transition text-slate-600 hover:text-rose-700 flex items-center justify-center gap-1.5 active:scale-95';
+        if (calBtn) calBtn.className = 'py-2.5 px-3 rounded-xl transition bg-white text-rose-700 shadow-sm flex items-center justify-center gap-1.5 active:scale-95';
+        if (listView) listView.classList.add('hidden');
+        if (calView) calView.classList.remove('hidden');
+        loadCalendarSummary();
+        loadCalendarDateOrders(selectedCalendarDate);
+      } else {
+        if (listBtn) listBtn.className = 'py-2.5 px-3 rounded-xl transition bg-white text-rose-700 shadow-sm flex items-center justify-center gap-1.5 active:scale-95';
+        if (calBtn) calBtn.className = 'py-2.5 px-3 rounded-xl transition text-slate-600 hover:text-rose-700 flex items-center justify-center gap-1.5 active:scale-95';
+        if (listView) listView.classList.remove('hidden');
+        if (calView) calView.classList.add('hidden');
+        loadAppointments();
+      }
+    }
+
+    async function loadCalendarSummary() {
+      try {
+        const res = await fetch('/api/calendar-summary?month=' + currentCalendarMonth);
+        const data = await res.json();
+        calendarSummaryData = data.summary || {};
+        renderCalendarGrid();
+      } catch (e) {
+        console.error('Failed to load calendar summary', e);
+      }
+    }
+
+    function renderCalendarGrid() {
+      const [yearStr, monthStr] = currentCalendarMonth.split('-');
+      const year = parseInt(yearStr, 10);
+      const month = parseInt(monthStr, 10) - 1;
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const titleEl = document.getElementById('calMonthTitle');
+      if (titleEl) titleEl.innerText = `${monthNames[month]} ${year}`;
+
+      const directPicker = document.getElementById('calDirectMonthPicker');
+      if (directPicker) directPicker.value = currentCalendarMonth;
+
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      let firstDay = new Date(year, month, 1).getDay();
+      firstDay = (firstDay === 0) ? 6 : firstDay - 1;
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const gridContainer = document.getElementById('calendarDaysGrid');
+      if (!gridContainer) return;
+
+      let html = '';
+
+      for (let i = 0; i < firstDay; i++) {
+        html += `<div class="h-13 sm:h-16 rounded-xl bg-slate-50/50 border border-transparent opacity-30"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const dateStr = `${yearStr}-${monthStr}-${dayStr}`;
+        const isToday = (dateStr === todayStr);
+        const isSelected = (dateStr === selectedCalendarDate);
+        const dateStats = calendarSummaryData[dateStr];
+        const orderCount = dateStats?.total_orders || 0;
+
+        let cellBg = 'bg-slate-50 border-slate-200/60 text-slate-800 hover:bg-rose-50/70';
+        let badgeHtml = '';
+
+        if (isSelected) {
+          cellBg = 'rose-gradient text-white font-bold shadow-md shadow-rose-500/25 ring-2 ring-rose-600';
+        } else if (isToday) {
+          cellBg = 'bg-rose-50/80 border-rose-300 font-bold text-rose-800 ring-2 ring-rose-400';
+        }
+
+        if (orderCount > 0) {
+          const badgeStyle = isSelected ? 'bg-white text-rose-700' : 'bg-rose-600 text-white shadow-sm';
+          badgeHtml = `<span class="text-[9px] font-extrabold px-1.5 py-0.2 rounded-full leading-tight ${badgeStyle}">${orderCount} ${orderCount === 1 ? 'ord' : 'ords'}</span>`;
+        }
+
+        html += `
+          <button type="button" onclick="selectCalendarDate('${dateStr}')" 
+            class="h-13 sm:h-16 p-1 rounded-xl border flex flex-col items-center justify-between transition active:scale-95 ${cellBg}">
+            <span class="text-xs ${isToday && !isSelected ? 'font-extrabold text-rose-600' : ''}">${day}</span>
+            <div class="h-4 flex items-center justify-center">${badgeHtml}</div>
+          </button>
+        `;
+      }
+
+      gridContainer.innerHTML = html;
+    }
+
+    function selectCalendarDate(dateStr) {
+      selectedCalendarDate = dateStr;
+      renderCalendarGrid();
+      loadCalendarDateOrders(dateStr);
+    }
+
+    function changeCalendarMonth(delta) {
+      const [yearStr, monthStr] = currentCalendarMonth.split('-');
+      let year = parseInt(yearStr, 10);
+      let month = parseInt(monthStr, 10) - 1 + delta;
+      if (month < 0) {
+        month = 11;
+        year -= 1;
+      } else if (month > 11) {
+        month = 0;
+        year += 1;
+      }
+      const newMonthStr = String(month + 1).padStart(2, '0');
+      currentCalendarMonth = `${year}-${newMonthStr}`;
+      loadCalendarSummary();
+    }
+
+    function onDirectMonthPick(val) {
+      if (!val) return;
+      currentCalendarMonth = val;
+      loadCalendarSummary();
+    }
+
+    function jumpToToday() {
+      const today = new Date();
+      currentCalendarMonth = today.toISOString().slice(0, 7);
+      selectedCalendarDate = today.toISOString().slice(0, 10);
+      loadCalendarSummary();
+      loadCalendarDateOrders(selectedCalendarDate);
+    }
+
+    function openBookingForSelectedDate() {
+      openBookingModal(selectedCalendarDate);
+    }
+
+    async function loadCalendarDateOrders(dateStr) {
+      const targetDate = dateStr || selectedCalendarDate;
+      const listContainer = document.getElementById('calendarDateAppointmentsList');
+      if (!listContainer) return;
+
+      listContainer.innerHTML = '<div class="py-6 text-center text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading bookings for date...</div>';
+
+      try {
+        const res = await fetch('/api/appointments?date=' + targetDate);
+        const list = await res.json();
+        
+        const [y, m, d] = targetDate.split('-');
+        const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+        const formatted = dateObj.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        
+        const titleEl = document.getElementById('calSelectedDateTitle');
+        if (titleEl) titleEl.innerText = formatted;
+        
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const tagEl = document.getElementById('calSelectedDateTag');
+        if (tagEl) {
+          if (targetDate === todayStr) {
+            tagEl.innerText = 'Today';
+            tagEl.className = 'text-[10px] font-bold uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100';
+          } else {
+            tagEl.innerText = targetDate;
+            tagEl.className = 'text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md';
+          }
+        }
+
+        let count = 0;
+        let totalAmt = 0;
+        let paidAmt = 0;
+        (list || []).forEach(a => {
+          if (a.status !== 'cancelled') {
+            count++;
+            totalAmt += Number(a.total_amount || 0);
+            paidAmt += Number(a.paid_amount || 0);
+          }
+        });
+        const dueAmt = Math.max(0, totalAmt - paidAmt);
+
+        const countEl = document.getElementById('calDispOrderCount');
+        if (countEl) countEl.innerText = `${count} ${count === 1 ? 'Order' : 'Orders'}`;
+        const totalEl = document.getElementById('calDispTotalAmt');
+        if (totalEl) totalEl.innerText = '₹' + totalAmt.toLocaleString('en-IN');
+        const paidEl = document.getElementById('calDispPaidAmt');
+        if (paidEl) paidEl.innerText = '₹' + paidAmt.toLocaleString('en-IN');
+        const dueEl = document.getElementById('calDispDueAmt');
+        if (dueEl) dueEl.innerText = '₹' + dueAmt.toLocaleString('en-IN');
+
+        if (!Array.isArray(list) || list.length === 0) {
+          listContainer.innerHTML = `
+            <div class="p-6 rounded-2xl bg-rose-50/40 border border-rose-100/80 text-center space-y-2.5">
+              <div class="w-10 h-10 rounded-xl bg-white text-rose-500 flex items-center justify-center text-lg mx-auto shadow-sm">
+                <i class="fa-regular fa-calendar-xmark"></i>
+              </div>
+              <p class="text-xs font-semibold text-slate-700">No appointments scheduled for this date</p>
+              <button onclick="openBookingForSelectedDate()" class="py-2 px-3.5 rounded-xl rose-gradient text-white font-semibold text-xs shadow-sm active:scale-95 transition">
+                <i class="fa-solid fa-plus text-[10px] mr-1"></i> Add Booking for ${d}/${m}
+              </button>
+            </div>
+          `;
+          return;
+        }
+
+        listContainer.innerHTML = list.map(a => generateOrderCardHtml(a)).join('');
+      } catch (err) {
+        console.error('Failed to load calendar date orders', err);
+        listContainer.innerHTML = '<p class="text-xs text-rose-500 text-center py-4">Failed to load bookings for this date.</p>';
+      }
     }
 
     // ─────────────────────────────────────────────
@@ -1252,16 +1705,27 @@
     function renderBookingServiceCheckboxes(list) {
       const container = document.getElementById('serviceSelectOptions');
       if (!Array.isArray(list) || list.length === 0) {
-        container.innerHTML = '<p class="text-xs text-slate-400 p-2 text-center">No services available.</p>';
+        container.innerHTML = '<p class="text-xs text-slate-400 p-2 text-center">No services available. Tap Add Service first.</p>';
         return;
       }
-      container.innerHTML = list.map(s => `
+      // Deduplicate by lower-case service name so duplicates never appear as checkboxes
+      const seenNames = new Set();
+      const uniqueList = [];
+      list.forEach(s => {
+        const key = s.name.trim().toLowerCase();
+        if (!seenNames.has(key)) {
+          seenNames.add(key);
+          uniqueList.push(s);
+        }
+      });
+
+      container.innerHTML = uniqueList.map(s => `
         <label class="flex items-center justify-between p-1.5 hover:bg-rose-50/50 rounded-lg cursor-pointer">
           <div class="flex items-center gap-2">
-            <input type="checkbox" value="${s.id}" data-name="${s.name}" data-price="${s.price}" onchange="calculateBookingTotal()" class="service-checkbox accent-rose-600 rounded">
-            <span class="text-xs text-slate-700 font-medium">${s.name}</span>
+            <input type="checkbox" value="${s.id}" data-name="${escapeAttr(s.name)}" data-price="${s.price}" onchange="calculateBookingTotal()" class="service-checkbox accent-rose-600 rounded">
+            <span class="text-xs text-slate-700 font-medium">${escapeHtml(s.name)}</span>
           </div>
-          <span class="text-xs font-bold text-slate-900">₹${s.price}</span>
+          <span class="text-xs font-bold text-slate-900">₹${Number(s.price).toLocaleString('en-IN')}</span>
         </label>
       `).join('');
     }
@@ -1315,10 +1779,14 @@
       document.getElementById('bDispDue').innerText = '₹' + due.toLocaleString('en-IN');
     }
 
-    function openBookingModal() {
+    function openBookingModal(prefilledDate) {
       document.getElementById('bookingModal').classList.remove('hidden');
+      if (prefilledDate) {
+        document.getElementById('bDate').value = prefilledDate;
+      }
       updateAdvanceCalc();
     }
+
     function closeBookingModal() {
       document.getElementById('bookingModal').classList.add('hidden');
       document.getElementById('bookingForm').reset();
@@ -1328,8 +1796,11 @@
       document.getElementById('bDispDue').innerText = '₹0';
     }
 
+    let isSavingBooking = false;
     async function handleCreateBooking(e) {
       e.preventDefault();
+      if (isSavingBooking) return;
+
       const customer_name = document.getElementById('bCustomerName').value.trim();
       const customer_phone = document.getElementById('bCustomerPhone').value.trim();
       const appointment_date = document.getElementById('bDate').value;
@@ -1341,13 +1812,31 @@
       const notes = document.getElementById('bNotes').value.trim();
 
       const checked = document.querySelectorAll('.service-checkbox:checked');
-      const selectedServices = Array.from(checked).map(cb => ({
-        id: Number(cb.value),
-        name: cb.dataset.name,
-        price: Number(cb.dataset.price)
-      }));
+      // Deduplicate selected services by ID
+      const seenServiceIds = new Set();
+      const selectedServices = [];
+      checked.forEach(cb => {
+        const id = Number(cb.value);
+        if (!seenServiceIds.has(id)) {
+          seenServiceIds.add(id);
+          selectedServices.push({
+            id: id,
+            name: cb.dataset.name,
+            price: Number(cb.dataset.price)
+          });
+        }
+      });
+
+      const submitBtn = document.getElementById('saveBookingSubmitBtn');
+      const originalText = submitBtn ? submitBtn.innerHTML : 'Confirm & Save';
 
       try {
+        isSavingBooking = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...';
+        }
+
         const res = await fetch('/api/appointments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1369,11 +1858,19 @@
           closeBookingModal();
           loadAppointments();
           loadDashboard();
+          if (typeof loadCalendarSummary === 'function') loadCalendarSummary();
+          if (typeof loadCalendarDateOrders === 'function') loadCalendarDateOrders();
         } else {
           alert('Failed to save booking: ' + (data.error || 'Server error'));
         }
       } catch (err) {
         alert('Network error saving booking: ' + err.message);
+      } finally {
+        isSavingBooking = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
       }
     }
 
@@ -1385,8 +1882,11 @@
       document.getElementById('serviceForm').reset();
     }
 
+    let isSavingService = false;
     async function handleCreateService(e) {
       e.preventDefault();
+      if (isSavingService) return;
+
       const name = document.getElementById('sName').value.trim();
       const category = document.getElementById('sCategory').value;
       const price = Number(document.getElementById('sPrice').value);
@@ -1397,7 +1897,23 @@
         return;
       }
 
+      // Client-side instant check to prevent duplicate service additions
+      const alreadyExists = (availableServices || []).some(s => s.name.trim().toLowerCase() === name.toLowerCase());
+      if (alreadyExists) {
+        alert(`Service "${name}" already exists in your menu!`);
+        return;
+      }
+
+      const submitBtn = document.getElementById('saveServiceSubmitBtn');
+      const originalText = submitBtn ? submitBtn.innerHTML : 'Add to Menu';
+
       try {
+        isSavingService = true;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...';
+        }
+
         const res = await fetch('/api/services', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1408,10 +1924,16 @@
           closeServiceModal();
           await loadServices();
         } else {
-          alert('Failed to add service: ' + (data.error || 'Server error'));
+          alert(data.error || 'Failed to add service');
         }
       } catch (err) {
         alert('Network error adding service: ' + err.message);
+      } finally {
+        isSavingService = false;
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalText;
+        }
       }
     }
 

@@ -45,6 +45,7 @@ async function ensureDbInitialized(db: D1Database) {
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status)').run(); } catch {}
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_appointment_services_appt ON appointment_services(appointment_id)').run(); } catch {}
     try { await db.prepare('CREATE INDEX IF NOT EXISTS idx_payments_appt ON payments(appointment_id)').run(); } catch {}
+    try { await db.prepare('CREATE UNIQUE INDEX IF NOT EXISTS idx_services_active_name ON services(name) WHERE is_active = 1').run(); } catch {}
 
     // 7. Migrations for existing appointments table
     try {
@@ -221,6 +222,7 @@ app.get('/api/appointments', async (c) => {
     const db = c.env.DB;
     const filter = c.req.query('filter') || 'all';
     const search = c.req.query('search') || '';
+    const date = c.req.query('date') || '';
     const today = new Date().toISOString().slice(0, 10);
 
     let query = `
@@ -243,7 +245,10 @@ app.get('/api/appointments', async (c) => {
     `;
     const params: any[] = [];
 
-    if (filter === 'today') {
+    if (date) {
+      query += ' AND a.appointment_date = ?';
+      params.push(date);
+    } else if (filter === 'today') {
       query += ' AND a.appointment_date = ?';
       params.push(today);
     } else if (filter === 'upcoming') {
@@ -251,12 +256,14 @@ app.get('/api/appointments', async (c) => {
       params.push(today);
     } else if (filter === 'completed') {
       query += ' AND a.status = "completed"';
+    } else if (filter === 'cancelled') {
+      query += ' AND a.status = "cancelled"';
     } else if (filter === 'partial') {
-      query += ' AND (a.payment_status = "partial" OR (a.paid_amount > 0 AND a.paid_amount < a.total_amount))';
+      query += ' AND (a.payment_status = "partial" OR (a.paid_amount > 0 AND a.paid_amount < a.total_amount)) AND a.status != "cancelled"';
     } else if (filter === 'unpaid') {
-      query += ' AND (a.payment_status = "pending" OR a.paid_amount = 0)';
+      query += ' AND (a.payment_status = "pending" OR a.paid_amount = 0) AND a.status != "cancelled"';
     } else if (filter === 'paid') {
-      query += ' AND (a.payment_status = "paid" OR a.paid_amount >= a.total_amount)';
+      query += ' AND (a.payment_status = "paid" OR a.paid_amount >= a.total_amount) AND a.status != "cancelled"';
     } else if (filter === 'pending_payment') {
       query += ' AND (a.payment_status = "pending" OR a.payment_status = "partial" OR a.paid_amount < a.total_amount) AND a.status != "cancelled"';
     }
@@ -266,7 +273,11 @@ app.get('/api/appointments', async (c) => {
       params.push(`%${search}%`, `%${search}%`);
     }
 
-    query += ' GROUP BY a.id ORDER BY a.appointment_date DESC, a.appointment_time DESC LIMIT 100';
+    if (date) {
+      query += ' GROUP BY a.id ORDER BY a.appointment_time ASC';
+    } else {
+      query += ' GROUP BY a.id ORDER BY a.appointment_date DESC, a.appointment_time DESC LIMIT 100';
+    }
 
     const stmt = db.prepare(query);
     const { results } = await stmt.bind(...params).all();
@@ -275,6 +286,67 @@ app.get('/api/appointments', async (c) => {
   } catch (err: any) {
     console.error('Failed to fetch appointments', err);
     return c.json([]);
+  }
+});
+
+// ─────────────────────────────────────────────
+// 3B. CALENDAR DATE-WISE SUMMARY
+// ─────────────────────────────────────────────
+app.get('/api/calendar-summary', async (c) => {
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'Database binding DB is missing' }, 500);
+    const month = c.req.query('month') || new Date().toISOString().slice(0, 7);
+    const pattern = `${month}%`;
+
+    const { results } = await db.prepare(`
+      SELECT 
+        appointment_date,
+        COUNT(*) as total_orders,
+        SUM(total_amount) as total_amount,
+        SUM(paid_amount) as total_paid,
+        SUM(MAX(0, total_amount - paid_amount)) as total_due
+      FROM appointments
+      WHERE appointment_date LIKE ? AND status != 'cancelled'
+      GROUP BY appointment_date
+    `).bind(pattern).all();
+
+    const { results: cancelledRows } = await db.prepare(`
+      SELECT appointment_date, COUNT(*) as cancelled_count
+      FROM appointments
+      WHERE appointment_date LIKE ? AND status = 'cancelled'
+      GROUP BY appointment_date
+    `).bind(pattern).all();
+
+    const summaryMap: Record<string, any> = {};
+    (results || []).forEach((row: any) => {
+      summaryMap[row.appointment_date] = {
+        total_orders: Number(row.total_orders || 0),
+        total_amount: Number(row.total_amount || 0),
+        total_paid: Number(row.total_paid || 0),
+        total_due: Number(row.total_due || 0),
+        cancelled_count: 0
+      };
+    });
+
+    (cancelledRows || []).forEach((row: any) => {
+      if (!summaryMap[row.appointment_date]) {
+        summaryMap[row.appointment_date] = {
+          total_orders: 0,
+          total_amount: 0,
+          total_paid: 0,
+          total_due: 0,
+          cancelled_count: Number(row.cancelled_count || 0)
+        };
+      } else {
+        summaryMap[row.appointment_date].cancelled_count = Number(row.cancelled_count || 0);
+      }
+    });
+
+    return c.json({ month, summary: summaryMap });
+  } catch (err: any) {
+    console.error('Failed to get calendar summary:', err);
+    return c.json({ error: err.message }, 500);
   }
 });
 
@@ -336,11 +408,17 @@ app.post('/api/appointments', async (c) => {
   const appointmentId = result.meta.last_row_id;
 
   if (data.services && data.services.length > 0 && appointmentId) {
+    const seenServices = new Set<string>();
     for (const s of data.services) {
+      if (!s || !s.name) continue;
+      const key = `${s.id || ''}_${s.name.trim().toLowerCase()}`;
+      if (seenServices.has(key)) continue;
+      seenServices.add(key);
+
       await db.prepare(`
         INSERT INTO appointment_services (appointment_id, service_id, service_name, price)
         VALUES (?, ?, ?, ?)
-      `).bind(appointmentId, s.id || null, s.name, s.price).run();
+      `).bind(appointmentId, s.id || null, s.name.trim(), Number(s.price) || 0).run();
     }
   }
 
@@ -551,6 +629,8 @@ app.delete('/api/appointments/:id', async (c) => {
     const id = c.req.param('id');
     const db = c.env.DB;
     if (!db) return c.json({ error: 'DB binding is missing' }, 500);
+    await db.prepare('DELETE FROM payments WHERE appointment_id = ?').bind(id).run();
+    await db.prepare('DELETE FROM appointment_services WHERE appointment_id = ?').bind(id).run();
     await db.prepare('DELETE FROM appointments WHERE id = ?').bind(id).run();
     return c.json({ success: true });
   } catch (err: any) {
@@ -581,13 +661,37 @@ app.post('/api/services', async (c) => {
     if (!name || price === undefined || price === null || price === '') {
       return c.json({ error: 'Name and price required' }, 400);
     }
+    const cleanName = String(name).trim();
+
+    // Prevent duplicate services: check if active service with same name already exists
+    const existing = await db.prepare(
+      'SELECT id, is_active FROM services WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))'
+    ).bind(cleanName).first<{ id: number; is_active: number }>();
+
+    if (existing) {
+      if (existing.is_active === 1) {
+        return c.json({ error: `Service "${cleanName}" already exists in menu!` }, 409);
+      } else {
+        // Reactivate previously deleted service with updated details
+        await db.prepare(`
+          UPDATE services 
+          SET is_active = 1, category = ?, price = ?, duration_minutes = ? 
+          WHERE id = ?
+        `).bind(category || 'General', Number(price), Number(duration_minutes) || 30, existing.id).run();
+        return c.json({ success: true, id: existing.id, reactivated: true }, 200);
+      }
+    }
+
     const result = await db.prepare(`
       INSERT INTO services (name, category, price, duration_minutes)
       VALUES (?, ?, ?, ?)
-    `).bind(String(name).trim(), category || 'General', Number(price), Number(duration_minutes) || 30).run();
+    `).bind(cleanName, category || 'General', Number(price), Number(duration_minutes) || 30).run();
 
     return c.json({ success: true, id: result.meta?.last_row_id }, 201);
   } catch (err: any) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      return c.json({ error: 'A service with this name already exists in menu!' }, 409);
+    }
     console.error('Failed to create service:', err);
     return c.json({ error: err.message || 'Failed to create service' }, 500);
   }
