@@ -252,6 +252,22 @@
             </div>
           </div>
 
+          <!-- DUPLICATE ORDERS BANNER (SHOWS IF PREVIOUS DUPLICATES DETECTED) -->
+          <div id="duplicateNoticeBanner" class="hidden bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-2.5 text-xs shadow-sm">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 text-sm">
+                <i class="fa-solid fa-layer-group"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="font-bold text-amber-950 text-xs sm:text-sm leading-tight">Duplicate Bookings Detected</p>
+                <p class="text-[10px] sm:text-[11px] text-amber-700 mt-0.5 truncate">Identical orders found from multiple rapid clicks.</p>
+              </div>
+            </div>
+            <button onclick="mergeDuplicatesFromUi(this)" class="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/20 active:scale-95 transition shrink-0 flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles text-[10px]"></i> Merge Now
+            </button>
+          </div>
+
           <!-- ORDERS LIST -->
           <div id="appointmentsList" class="space-y-3 w-full min-w-0">
             <!-- Dynamic Orders -->
@@ -599,6 +615,21 @@
             Save Settings
           </button>
           <p id="settingsMsg" class="text-center text-xs text-emerald-600 font-semibold hidden">Settings updated successfully!</p>
+        </div>
+
+        <!-- DATABASE & MAINTENANCE (MERGE DUPLICATES) -->
+        <div class="bg-white p-6 rounded-2xl border border-rose-100 shadow-sm space-y-3">
+          <h3 class="text-base font-bold text-slate-900 serif border-b border-slate-100 pb-2 flex items-center justify-between">
+            <span><i class="fa-solid fa-layer-group text-rose-600 mr-1.5"></i> Order Maintenance</span>
+            <span class="text-[11px] font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">Cleanup Tool</span>
+          </h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            If multiple bookings were accidentally created for the same customer, date, and time due to rapid double-clicks, tap below to automatically merge them into clean single orders with unified payments and zero data loss.
+          </p>
+          <button type="button" onclick="mergeDuplicatesFromUi(this)" id="settingsMergeDupBtn" class="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Merge All Duplicate Orders
+          </button>
+          <p id="mergeStatusMsg" class="text-center text-xs text-emerald-600 font-semibold hidden"></p>
         </div>
       </section>
 
@@ -1410,7 +1441,81 @@
       const res = await fetch('/api/appointments?filter=' + currentFilter + '&search=' + encodeURIComponent(search));
       allAppointments = await res.json();
       currentOrdersPage = 1;
+      checkDuplicatesInList(allAppointments);
       renderPaginatedAppointments();
+    }
+
+    function checkDuplicatesInList(list) {
+      const banner = document.getElementById('duplicateNoticeBanner');
+      if (!banner) return;
+      if (!Array.isArray(list) || list.length <= 1) {
+        banner.classList.add('hidden');
+        return;
+      }
+      const seen = new Set();
+      let hasDupes = false;
+      for (const a of list) {
+        if (a.status === 'cancelled') continue;
+        const cleanName = (a.customer_name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        const cleanPhone = (a.customer_phone || '').replace(/\D/g, '');
+        const key = `${cleanName}||${cleanPhone}||${a.appointment_date}||${a.appointment_time}`;
+        if (seen.has(key)) {
+          hasDupes = true;
+          break;
+        }
+        seen.add(key);
+      }
+      if (hasDupes) {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    async function mergeDuplicatesFromUi(btn) {
+      const originalText = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Merging duplicates...';
+      }
+      try {
+        const res = await fetch('/api/appointments/merge-duplicates', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const count = data.removedCount || 0;
+          const groups = data.mergedGroups || 0;
+          const msg = count > 0 
+            ? `Successfully merged ${groups} duplicate groups (removed ${count} duplicate orders)!` 
+            : 'All orders are already clean! No duplicate orders found.';
+          
+          const statusEl = document.getElementById('mergeStatusMsg');
+          if (statusEl) {
+            statusEl.innerText = msg;
+            statusEl.classList.remove('hidden');
+            setTimeout(() => statusEl.classList.add('hidden'), 5000);
+          }
+          
+          const noticeBanner = document.getElementById('duplicateNoticeBanner');
+          if (noticeBanner) noticeBanner.classList.add('hidden');
+
+          // Reload all views
+          loadAppointments();
+          loadDashboard();
+          if (typeof loadCalendarSummary === 'function') loadCalendarSummary();
+          if (typeof loadCalendarDateOrders === 'function') loadCalendarDateOrders(selectedCalendarDate);
+
+          alert(msg);
+        } else {
+          alert('Failed to merge duplicates: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        alert('Network error merging duplicates: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
     }
 
     function changeOrdersPage(newPage) {

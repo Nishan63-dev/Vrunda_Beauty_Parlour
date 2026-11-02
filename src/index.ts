@@ -20,6 +20,140 @@ app.onError((err, c) => {
 let isDbReady = false;
 let lastInitError: string | null = null;
 
+// Merge legacy or duplicate appointments in the database
+async function mergeDuplicateOrdersInDb(db: D1Database): Promise<{ mergedGroups: number; removedCount: number }> {
+  try {
+    const { results: allAppts } = await db.prepare(
+      'SELECT * FROM appointments ORDER BY id ASC'
+    ).all();
+
+    if (!allAppts || allAppts.length === 0) {
+      return { mergedGroups: 0, removedCount: 0 };
+    }
+
+    const groups: Record<string, any[]> = {};
+    for (const a of allAppts as any[]) {
+      const cleanName = (a.customer_name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const cleanPhone = (a.customer_phone || '').replace(/\D/g, '');
+      const key = `${cleanName}||${cleanPhone}||${a.appointment_date}||${a.appointment_time}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    }
+
+    let mergedGroups = 0;
+    let removedCount = 0;
+
+    for (const [key, group] of Object.entries(groups)) {
+      if (group.length <= 1) continue;
+
+      mergedGroups++;
+      const primary = group[0];
+      const duplicates = group.slice(1);
+      const dupIds = duplicates.map(d => d.id);
+
+      // Merge notes if primary is empty
+      if (!primary.notes) {
+        const foundNote = duplicates.find(d => d.notes && d.notes.trim());
+        if (foundNote) primary.notes = foundNote.notes;
+      }
+
+      const isAnyBridal = group.some(d => d.is_bridal === 1);
+      if (isAnyBridal) primary.is_bridal = 1;
+
+      // 1. Move unique services to primary
+      const { results: primaryServices } = await db.prepare(
+        'SELECT * FROM appointment_services WHERE appointment_id = ?'
+      ).bind(primary.id).all();
+      const existingSrvNames = new Set((primaryServices || []).map((s: any) => (s.service_name || '').trim().toLowerCase()));
+
+      for (const dup of duplicates) {
+        const { results: dupServices } = await db.prepare(
+          'SELECT * FROM appointment_services WHERE appointment_id = ?'
+        ).bind(dup.id).all();
+        for (const s of (dupServices || []) as any[]) {
+          const sName = (s.service_name || '').trim().toLowerCase();
+          if (!existingSrvNames.has(sName)) {
+            existingSrvNames.add(sName);
+            await db.prepare('UPDATE appointment_services SET appointment_id = ? WHERE id = ?').bind(primary.id, s.id).run();
+          } else {
+            await db.prepare('DELETE FROM appointment_services WHERE id = ?').bind(s.id).run();
+          }
+        }
+      }
+
+      // 2. Move sessions to primary
+      for (const dup of duplicates) {
+        await db.prepare('UPDATE appointment_sessions SET appointment_id = ? WHERE appointment_id = ?').bind(primary.id, dup.id).run();
+      }
+
+      // 3. Handle payments:
+      const allApptIds = [primary.id, ...dupIds];
+      const placeholders = allApptIds.map(() => '?').join(',');
+      const { results: allPayments } = await db.prepare(
+        `SELECT * FROM payments WHERE appointment_id IN (${placeholders}) ORDER BY payment_date ASC, id ASC`
+      ).bind(...allApptIds).all();
+
+      const seenBookingPayments = new Set<string>();
+      for (const p of (allPayments || []) as any[]) {
+        const pAmt = Number(p.amount) || 0;
+        const pNote = (p.note || '').trim().toLowerCase();
+        const isBookingDeposit = pNote.includes('booking') || pNote.includes('deposit') || pNote.includes('full payment');
+
+        if (isBookingDeposit) {
+          const depKey = `${pAmt}_${pNote}`;
+          if (seenBookingPayments.has(depKey)) {
+            // Duplicate artifact payment from double-tap! Delete it.
+            await db.prepare('DELETE FROM payments WHERE id = ?').bind(p.id).run();
+            continue;
+          } else {
+            seenBookingPayments.add(depKey);
+            if (p.appointment_id !== primary.id) {
+              await db.prepare('UPDATE payments SET appointment_id = ? WHERE id = ?').bind(primary.id, p.id).run();
+            }
+          }
+        } else {
+          if (p.appointment_id !== primary.id) {
+            await db.prepare('UPDATE payments SET appointment_id = ? WHERE id = ?').bind(primary.id, p.id).run();
+          }
+        }
+      }
+
+      // 4. Recalculate primary total & paid
+      const sumRes = await db.prepare(
+        'SELECT COALESCE(SUM(amount), 0) as total_paid FROM payments WHERE appointment_id = ?'
+      ).bind(primary.id).first<{ total_paid: number }>();
+
+      let newPaid = sumRes?.total_paid ?? 0;
+      if (newPaid === 0 && primary.paid_amount > 0 && (!allPayments || allPayments.length === 0)) {
+        newPaid = primary.paid_amount;
+      }
+
+      const totalBill = Number(primary.total_amount) || 0;
+      const newStatus = (newPaid >= totalBill && totalBill > 0) ? 'paid' : (newPaid > 0 ? 'partial' : 'pending');
+
+      await db.prepare(`
+        UPDATE appointments 
+        SET paid_amount = ?, payment_status = ?, notes = ?, is_bridal = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).bind(newPaid, newStatus, primary.notes || '', primary.is_bridal || 0, primary.id).run();
+
+      // 5. Delete duplicate appointments
+      for (const dup of duplicates) {
+        await db.prepare('DELETE FROM payments WHERE appointment_id = ?').bind(dup.id).run();
+        await db.prepare('DELETE FROM appointment_services WHERE appointment_id = ?').bind(dup.id).run();
+        await db.prepare('DELETE FROM appointment_sessions WHERE appointment_id = ?').bind(dup.id).run();
+        await db.prepare('DELETE FROM appointments WHERE id = ?').bind(dup.id).run();
+        removedCount++;
+      }
+    }
+
+    return { mergedGroups, removedCount };
+  } catch (e: any) {
+    console.error('Error in mergeDuplicateOrdersInDb:', e);
+    return { mergedGroups: 0, removedCount: 0 };
+  }
+}
+
 // Auto-initialize DB schema & default seeds if tables are not yet present in D1
 async function ensureDbInitialized(db: D1Database) {
   if (isDbReady) return;
@@ -99,6 +233,13 @@ async function ensureDbInitialized(db: D1Database) {
       }
     } catch (e: any) {
       console.error('Failed to seed settings', e);
+    }
+
+    // 9. Auto-merge legacy duplicate orders if any exist
+    try {
+      await mergeDuplicateOrdersInDb(db);
+    } catch (e: any) {
+      console.error('Failed to auto-merge duplicates on init:', e);
     }
 
     isDbReady = true;
@@ -485,6 +626,30 @@ app.post('/api/appointments', async (c) => {
     return c.json({ error: 'Missing required fields' }, 400);
   }
 
+  // Prevent rapid double-tap duplicate creation:
+  const recentDup = await db.prepare(`
+    SELECT id, paid_amount, total_amount, payment_status
+    FROM appointments
+    WHERE LOWER(TRIM(customer_name)) = LOWER(TRIM(?))
+      AND customer_phone = ?
+      AND appointment_date = ?
+      AND appointment_time = ?
+      AND status != 'cancelled'
+      AND created_at >= datetime('now', '-30 seconds')
+    ORDER BY id DESC LIMIT 1
+  `).bind(data.customer_name, data.customer_phone, data.appointment_date, data.appointment_time).first<any>();
+
+  if (recentDup) {
+    return c.json({
+      success: true,
+      id: recentDup.id,
+      paid_amount: Number(recentDup.paid_amount) || 0,
+      due_amount: Math.max(0, (Number(recentDup.total_amount) || 0) - (Number(recentDup.paid_amount) || 0)),
+      payment_status: recentDup.payment_status,
+      deduplicated: true
+    }, 200);
+  }
+
   const is_bridal = data.is_bridal ? 1 : 0;
   const status = data.status || 'confirmed';
   const notes = data.notes || '';
@@ -570,6 +735,20 @@ app.post('/api/appointments', async (c) => {
     due_amount: Math.max(0, total - paid_amount),
     payment_status
   }, 201);
+});
+
+// ─────────────────────────────────────────────
+// 4B. MANUAL OR AUTOMATED DUPLICATE MERGE ENDPOINT
+// ─────────────────────────────────────────────
+app.post('/api/appointments/merge-duplicates', async (c) => {
+  try {
+    const db = c.env.DB;
+    if (!db) return c.json({ error: 'DB binding is missing' }, 500);
+    const result = await mergeDuplicateOrdersInDb(db);
+    return c.json({ success: true, ...result });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ─────────────────────────────────────────────
